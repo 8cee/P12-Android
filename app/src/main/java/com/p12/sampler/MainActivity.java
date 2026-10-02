@@ -130,10 +130,10 @@ public class MainActivity extends Activity {
             ContentValues v=new ContentValues(); v.put(MediaStore.Downloads.DISPLAY_NAME,name); v.put(MediaStore.Downloads.MIME_TYPE,mime); v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/P-12");
             Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v); if(uri==null) throw new Exception("Cannot create download");
             try(OutputStream os=getContentResolver().openOutputStream(uri)){ if(os==null) throw new Exception("Cannot open download"); os.write(data); }
-            toast("Saved to Downloads/P-12/"+name);
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved to Downloads/P-12/"+name, Toast.LENGTH_LONG).show());
         } else {
             File dir=new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),"P-12"); if(!dir.exists() && !dir.mkdirs()) throw new Exception("Cannot create export folder");
-            File f=new File(dir,name); try(FileOutputStream os=new FileOutputStream(f)){os.write(data);} toast("Saved: "+f.getAbsolutePath());
+            File f=new File(dir,name); try(FileOutputStream os=new FileOutputStream(f)){os.write(data);} runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved: "+f.getAbsolutePath(), Toast.LENGTH_LONG).show());
         }
     }
 
