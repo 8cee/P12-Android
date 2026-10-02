@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -36,8 +37,12 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
         web = new WebView(this);
         web.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        web.setHorizontalScrollBarEnabled(true);
+        web.setVerticalScrollBarEnabled(true);
+        web.setOverScrollMode(WebView.OVER_SCROLL_ALWAYS);
         setContentView(web);
 
         WebSettings s = web.getSettings();
@@ -89,6 +94,7 @@ public class MainActivity extends Activity {
 
     private void installDownloadBridge() {
         String js = "javascript:(function(){if(window.__p12AndroidDownloadBridge)return;window.__p12AndroidDownloadBridge=true;"+
+            "try{let v=document.querySelector('meta[name=viewport]');if(!v){v=document.createElement('meta');v.name='viewport';document.head.appendChild(v);}v.content='width=device-width,initial-scale=1,minimum-scale=0.25,maximum-scale=5,user-scalable=yes';let st=document.getElementById('p12-android-scrollfix');if(!st){st=document.createElement('style');st.id='p12-android-scrollfix';st.textContent='html,body{overflow:auto!important;overflow-x:auto!important;overflow-y:auto!important;touch-action:pan-x pan-y pinch-zoom!important;-webkit-overflow-scrolling:touch!important;}body{min-width:max-content!important;}';document.head.appendChild(st);}}catch(_e){}"+
             "document.querySelectorAll('input[type=file]').forEach(function(i){let ac=i.getAttribute('accept')||'';if(ac.includes('.p12proj')||ac.includes('application/json')){if(!ac.includes('.p12'))ac='.p12,'+ac;i.setAttribute('accept',ac);}});document.addEventListener('click',async function(e){let a=e.target;while(a&&a.tagName!=='A')a=a.parentElement;if(!a||!a.download||!a.href||!a.href.startsWith('blob:'))return;"+
             "e.preventDefault();e.stopPropagation();try{const b=await fetch(a.href).then(r=>r.blob());const ab=await b.arrayBuffer();const u=new Uint8Array(ab);let bin='';const chunk=0x8000;for(let i=0;i<u.length;i+=chunk){bin+=String.fromCharCode.apply(null,u.subarray(i,Math.min(i+chunk,u.length)));}"+
             "const b64=btoa(bin),id=Date.now()+'-'+Math.random();let outName=a.download||'P12-export.bin';if(/\\.p12proj\\.json$/i.test(outName)||/\\.p12proj$/i.test(outName)||/^p12-project-/i.test(outName))outName='Project.p12';P12Android.beginSave(id,outName,b.type||'application/octet-stream');const step=350000;for(let i=0;i<b64.length;i+=step)P12Android.appendSave(id,b64.slice(i,i+step));P12Android.finishSave(id);}"+
