@@ -89,9 +89,9 @@ public class MainActivity extends Activity {
 
     private void installDownloadBridge() {
         String js = "javascript:(function(){if(window.__p12AndroidDownloadBridge)return;window.__p12AndroidDownloadBridge=true;"+
-            "document.addEventListener('click',async function(e){let a=e.target;while(a&&a.tagName!=='A')a=a.parentElement;if(!a||!a.download||!a.href||!a.href.startsWith('blob:'))return;"+
+            "document.querySelectorAll('input[type=file]').forEach(function(i){let ac=i.getAttribute('accept')||'';if(ac.includes('.p12proj')||ac.includes('application/json')){if(!ac.includes('.p12'))ac='.p12,'+ac;i.setAttribute('accept',ac);}});document.addEventListener('click',async function(e){let a=e.target;while(a&&a.tagName!=='A')a=a.parentElement;if(!a||!a.download||!a.href||!a.href.startsWith('blob:'))return;"+
             "e.preventDefault();e.stopPropagation();try{const b=await fetch(a.href).then(r=>r.blob());const ab=await b.arrayBuffer();const u=new Uint8Array(ab);let bin='';const chunk=0x8000;for(let i=0;i<u.length;i+=chunk){bin+=String.fromCharCode.apply(null,u.subarray(i,Math.min(i+chunk,u.length)));}"+
-            "const b64=btoa(bin),id=Date.now()+'-'+Math.random();P12Android.beginSave(id,a.download||'P12-export.bin',b.type||'application/octet-stream');const step=350000;for(let i=0;i<b64.length;i+=step)P12Android.appendSave(id,b64.slice(i,i+step));P12Android.finishSave(id);}"+
+            "const b64=btoa(bin),id=Date.now()+'-'+Math.random();let outName=a.download||'P12-export.bin';if(/\\.p12proj\\.json$/i.test(outName)||/\\.p12proj$/i.test(outName)||/^p12-project-/i.test(outName))outName='Project.p12';P12Android.beginSave(id,outName,b.type||'application/octet-stream');const step=350000;for(let i=0;i<b64.length;i+=step)P12Android.appendSave(id,b64.slice(i,i+step));P12Android.finishSave(id);}"+
             "catch(err){console.error('Android save bridge failed',err);P12Android.toast('Save failed: '+err);}},true);})();";
         web.evaluateJavascript(js, null);
     }
