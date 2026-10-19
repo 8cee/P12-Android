@@ -1,4 +1,4 @@
-P-12 FULL15 Android 1.0.4 — smartphone edition
+P-12 FULL15 Android 1.0.5 — smartphone edition
 
 Base: P12_FULL15_WINDOWS_MAX_BUILD_FIX_2026-10-11(1).zip supplied by the user.
 FULL15_SOURCE.json records exact source hashes. P-12.html is unchanged except
@@ -55,3 +55,8 @@ TESTS
   P12_CHROMIUM=/path/to/chromium node tests/android-smoke.cjs
 The browser test requires Playwright and uses a simulated JavaScript bridge;
 it does not replace testing the APK on Android.
+
+1.0.5 startup correction: fullscreen is requested after setContentView, and
+the initialized decor view is used for the insets controller. This removes
+the pre-decor null dereference on Android 11+. Build/lint verified; launch on
+the reporting phone remains to be confirmed.

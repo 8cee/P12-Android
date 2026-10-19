@@ -54,13 +54,13 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         setRequestedOrientation(getPreferences(MODE_PRIVATE).getInt("orientation", ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR));
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        enableImmersiveMode();
         web = new WebView(this);
         web.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         web.setHorizontalScrollBarEnabled(true);
         web.setVerticalScrollBarEnabled(true);
         web.setOverScrollMode(WebView.OVER_SCROLL_ALWAYS);
         setContentView(web);
+        web.post(this::enableImmersiveMode);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -129,7 +129,9 @@ public class MainActivity extends Activity {
 
     private void enableImmersiveMode() {
         if (Build.VERSION.SDK_INT >= 30) {
-            WindowInsetsController controller = getWindow().getInsetsController();
+            // getDecorView initializes the decor; Window.getInsetsController can
+            // dereference an absent decor before setContentView on some Android builds.
+            WindowInsetsController controller = getWindow().getDecorView().getWindowInsetsController();
             if (controller != null) {
                 controller.hide(WindowInsets.Type.systemBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
