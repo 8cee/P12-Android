@@ -94,6 +94,41 @@
     pages.Pads.querySelector('.pads-panel').append(edit);
     const dock=document.getElementById('p12VstChordDock'); if(dock) settings.append(dock);
     const upgrades=document.getElementById('upgradeDock'); if(upgrades) settings.append(upgrades);
+    const seqPanel = pages.Sequencer.querySelector('.sequencer-panel');
+    const help = document.createElement('details'); help.className='mobile-seq-help';
+    const helpTitle=document.createElement('summary');helpTitle.textContent='Sequencer help';
+    help.append(helpTitle,seqPanel.querySelector('.section-label'));seqPanel.prepend(help);
+    const scrollTools=document.createElement('div');scrollTools.className='mobile-seq-scroll';
+    const seqScroller=seqPanel.querySelector('.tracks-scroll');
+    for(const [label,direction] of [['◀ Steps',-1],['Steps ▶',1]]) {
+      const b=document.createElement('button');b.className='btn small ghost';b.textContent=label;
+      b.onclick=()=>seqScroller.scrollBy({left:direction*Math.max(100,seqScroller.clientWidth-128),behavior:'smooth'});scrollTools.append(b);
+    }
+    seqScroller.before(scrollTools);
+    // Reuse original channel nodes and handlers; only change which channel is shown.
+    const mixer=document.getElementById('mixerWinBackdrop');
+    const workspace=mixer.querySelector('.mixerwin-scroll');
+    const picker=document.createElement('div');picker.className='mobile-mixer-picker';
+    const channel=document.createElement('select');channel.id='p12MobileMixerChannel';channel.setAttribute('aria-label','Mixer channel');
+    const prev=document.createElement('button'),next=document.createElement('button');
+    prev.textContent='◀';next.textContent='▶';prev.setAttribute('aria-label','Previous channel');next.setAttribute('aria-label','Next channel');
+    picker.append(prev,channel,next);workspace.before(picker);
+    let selectedChannel='master:0';
+    function updateMixer() {
+      const strips=[...workspace.querySelectorAll('.mpcstrip')];
+      const options=strips.map(strip=>({key:strip.dataset.nativeKind+':'+strip.dataset.nativeIndex,label:strip.querySelector('.mpc-channel-id')?.textContent.trim()||strip.dataset.fid||'Channel',strip}));
+      if(!options.length)return;
+      if(!options.some(o=>o.key===selectedChannel)&&selectedChannel!=='buses')selectedChannel=options[0].key;
+      channel.replaceChildren(...options.map(o=>new Option(o.label,o.key)),new Option('Subchannels / buses','buses'));channel.value=selectedChannel;
+      for(const o of options)o.strip.classList.toggle('mobile-mixer-hidden',o.key!==selectedChannel);
+      for(const row of workspace.querySelectorAll('.mixerwin-row-scroll'))row.classList.toggle('mobile-mixer-hidden',row.querySelector('#mixerwinSubmixes')?selectedChannel!=='buses':![...row.querySelectorAll('.mpcstrip')].some(s=>!s.classList.contains('mobile-mixer-hidden')));
+      for(const label of workspace.querySelectorAll('.mixerwin-section-label'))label.classList.add('mobile-mixer-hidden');
+    }
+    channel.onchange=()=>{selectedChannel=channel.value;updateMixer();workspace.scrollTop=0;};
+    prev.onclick=()=>{channel.selectedIndex=Math.max(0,channel.selectedIndex-1);channel.onchange();};
+    next.onclick=()=>{channel.selectedIndex=Math.min(channel.options.length-1,channel.selectedIndex+1);channel.onchange();};
+    for(const id of ['mixerwinStrips','mixerwinTrackStrips'])new MutationObserver(updateMixer).observe(document.getElementById(id),{childList:true});
+    updateMixer();
     const tracks = document.getElementById('tracks');
     function sizeRows() {
       for (const row of tracks.children) if (row.matches('.track,.step-ruler'))
