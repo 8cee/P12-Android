@@ -2809,9 +2809,9 @@ html.p12-android .warp-panel{
     if(decimatorWorkletCtx===ctx) return true;
     try{
       const blob = new Blob([DECIMATOR_WORKLET_SRC], {type:'application/javascript'});
-      const url = URL.createObjectURL(blob);
+      const url = window.P12_ANDROID ? 'data:application/javascript,'+encodeURIComponent(DECIMATOR_WORKLET_SRC) : URL.createObjectURL(blob);
       await ctx.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
+      if(!window.P12_ANDROID)URL.revokeObjectURL(url);
       decimatorWorkletCtx = ctx;
       return true;
     }catch(err){
@@ -11020,7 +11020,7 @@ html.p12-android .warp-panel{
   // Native notes must reach JUCE before the device callback needs them.
   // Use a wider queue horizon only for native playback; Web Audio keeps
   // the existing scheduling window and unchanged SP-1200 event semantics.
-  const SCHEDULE_AHEAD=0.12, NATIVE_SCHEDULE_AHEAD=0.95, LOOKAHEAD_MS=15;
+  const SCHEDULE_AHEAD=window.P12_ANDROID ? 0.30 : 0.12, NATIVE_SCHEDULE_AHEAD=0.95, LOOKAHEAD_MS=15;
   function p12NativeScheduleHorizon(){
     // Native playback must survive renderer stalls without scheduling multiple
     // future pattern generations too early. Cover up to 950 ms, capped to
@@ -11380,6 +11380,9 @@ html.p12-android .warp-panel{
   }
 
   function updatePlayheadUI(idx){
+    if(window.P12_ANDROID && !state.playing)return;
+    if(window.P12_ANDROID)window.p12AndroidPlayhead?.(idx);
+    if(!window.P12_ANDROID || window.p12AndroidShouldPaintSequencer?.()){
     // Only touch highlighted cells instead of repainting every step
     // across eight tracks on every 16th note. Stale nodes from a
     // pattern rebuild remain harmlessly detached.
@@ -11395,6 +11398,7 @@ html.p12-android .warp-panel{
     if(seqScroll&&lead){const sr=seqScroll.getBoundingClientRect(),cr=lead.getBoundingClientRect();
       if(cr.right>sr.right-24)seqScroll.scrollLeft+=cr.right-(sr.right-90);
       else if(cr.left<sr.left+130)seqScroll.scrollLeft=Math.max(0,seqScroll.scrollLeft-(sr.left+150-cr.left));}
+    }
     document.getElementById('lcdStep').textContent = String(idx+1).padStart(2,'0');
     if(typeof window.p12PianoPlayheadUpdate==='function')window.p12PianoPlayheadUpdate(idx);
     document.getElementById('lcdBBT').textContent = bbtFor(idx);
@@ -11402,7 +11406,7 @@ html.p12-android .warp-panel{
     if(seqBarJump){
       const b=Math.floor(idx/STEPS_PER_BAR);
       if(seqBarJump.value!==String(b)) seqBarJump.value=String(b);
-      if(idx%STEPS_PER_BAR===0 && currentPatternObj().length>STEPS_PER_BAR) scrollSequencerToBar(b,false);
+      if(!window.P12_ANDROID && idx%STEPS_PER_BAR===0 && currentPatternObj().length>STEPS_PER_BAR) scrollSequencerToBar(b,false);
     }
   }
 
@@ -11417,7 +11421,10 @@ html.p12-android .warp-panel{
         p12SchedulerWorstLateMs=Math.max(p12SchedulerWorstLateMs,(now-nextStepTime)*1000);
       }
       while(nextStepTime < now + (nativeAudioEnabled ? p12NativeScheduleHorizon() : SCHEDULE_AHEAD)){
-        scheduleStep(stepIndex, nextStepTime);
+        if(window.P12_ANDROID && nextStepTime < now-0.02){
+          p12SchedulerLateTicks++;
+          p12SchedulerWorstLateMs=Math.max(p12SchedulerWorstLateMs,(now-nextStepTime)*1000);
+        }else scheduleStep(stepIndex, nextStepTime);
         nextStepTime += stepDuration();
         stepIndex += 1;
         const p = currentPatternObj();

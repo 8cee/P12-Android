@@ -194,6 +194,17 @@ public class MainActivity extends Activity {
     }
 
     public class AndroidBridge {
+        @JavascriptInterface public void zoomBy(double factor) {
+            if(!Double.isFinite(factor) || factor<0.8 || factor>1.25)return;
+            runOnUiThread(() -> web.zoomBy((float)factor));
+        }
+        @JavascriptInterface public void scrollPage(double dx,double dy) {
+            if(!Double.isFinite(dx)||!Double.isFinite(dy))return;
+            runOnUiThread(() -> {
+                float scale=web.getScale();
+                web.scrollBy((int)(Math.max(-1000,Math.min(1000,dx))*scale),(int)(Math.max(-1000,Math.min(1000,dy))*scale));
+            });
+        }
         @JavascriptInterface public void toast(String msg) { runOnUiThread(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show()); }
         @JavascriptInterface public void rotate() {
             runOnUiThread(() -> {

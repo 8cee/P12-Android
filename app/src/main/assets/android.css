@@ -222,3 +222,8 @@ html.p12-mobile-seq .tracks { gap:3px !important; }
 html.p12-android .mobile-seq-pager button,html.p12-android .mobile-mixer-pager button,html.p12-android #p12LaneControls { border:1px solid #151514; border-radius:5px; background:linear-gradient(#deded7,#b4b5af); color:#181919; }
 html.p12-android .mobile-mixer-banks button { border:1px solid #80643b; border-radius:5px; background:#34271a; color:#f3be69; }
 html.p12-mobile-seq .mobile-seq-pager #seqBarJump { min-width:72px; max-width:90px; }
+/* Navigation is deliberately two-finger; gestures.js distinguishes pan and pinch. */
+html.p12-android,html.p12-android body,html.p12-android body * { touch-action:none !important; }
+html.p12-android #mixerWinBackdrop .mixerwin-scroll,html.p12-android #mixerWinBackdrop .mixerwin-row-scroll,html.p12-android #mixerWinBackdrop .mpc-fader-input,html.p12-android #mixerWinBackdrop .mpc-send-knob,html.p12-android .pad .trimrow input[type=range] { touch-action:none !important; }
+.mobile-gesture-hint { padding:10px; color:#edc082; font-size:12px; }
+html.p12-android .unit,html.p12-android .unit *,html.p12-android .modal-panel,html.p12-android .modal-panel *,html.p12-android .tracks-scroll { touch-action:none !important; }

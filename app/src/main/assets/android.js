@@ -114,8 +114,8 @@
       stepPage=Math.max(0,Math.min(stepPage,Math.ceil(count/8)-1));
       const first=stepPage*8,last=Math.min(count,first+8);
       for(const row of rows) {
-        row.style.setProperty('grid-template-columns','32px repeat(8,minmax(0,1fr))','important');
-        [...row.children].forEach((cell,i)=>{if(i)cell.classList.toggle('mobile-step-hidden',i-1<first||i-1>=last);});
+        if(row.style.gridTemplateColumns!=='32px repeat(8, minmax(0px, 1fr))')row.style.setProperty('grid-template-columns','32px repeat(8,minmax(0,1fr))','important');
+        [...row.children].forEach((cell,i)=>{if(i){const hidden=i-1<first||i-1>=last;if(cell.classList.contains('mobile-step-hidden')!==hidden)cell.classList.toggle('mobile-step-hidden',hidden);}});
       }
       const tick=Number(rows[0]?.children[first+1]?.dataset.tick)||0;
       stepRange.textContent='Bar '+(Math.floor(tick/96)+1)+' · '+(first+1)+'–'+last;
@@ -129,13 +129,16 @@
       stepPage=Math.floor(Math.max(0,index)/8);sizeRows();
     });
     sizeRows();new MutationObserver(sizeRows).observe(tracks,{childList:true});
-    new MutationObserver(()=>{
-      if(!document.getElementById('playBtn').classList.contains('active'))return;
-      const row=tracks.querySelector('.track');
-      const cells=row?[...row.querySelectorAll('.step')]:[];
-      const playing=cells.findIndex(cell=>cell.classList.contains('playhead'));
-      if(playing>=0&&Math.floor(playing/8)!==stepPage){stepPage=Math.floor(playing/8);sizeRows();}
-    }).observe(tracks,{subtree:true,attributes:true,attributeFilter:['class']});
+    window.p12AndroidShouldPaintSequencer=()=>current==='Sequencer' && !document.hidden;
+    window.p12AndroidPlayhead=idx=>{
+      if(!window.p12AndroidShouldPaintSequencer())return;
+      const cells=tracks.querySelector('.track')?.querySelectorAll('.step');
+      if(!cells)return;
+      const tick=idx*6;let position=0;
+      while(position+1<cells.length&&Number(cells[position+1].dataset.tick)<=tick)position++;
+      const nextPage=Math.floor(position/8);
+      if(nextPage!==stepPage){stepPage=nextPage;sizeRows();}
+    };
     // Four original channel strips at a time. All controls keep their original handlers.
     const mixer=document.getElementById('mixerWinBackdrop');
     const workspace=mixer.querySelector('.mixerwin-scroll');
@@ -200,6 +203,52 @@
     setupDialogs();
     unit.append(settings);
     pages.Pads.querySelector('.pads-panel').append(tools);
+    // Two-finger gestures own navigation; individual controls keep one-finger input.
+    let gesture=null,suppressClickUntil=0;
+    const activePointers=new Map();
+    document.addEventListener('pointerdown',event=>{
+      if(event.pointerType!=='touch')return;
+      if(activePointers.size){event.stopImmediatePropagation();}
+      activePointers.set(event.pointerId,event.target);
+    },true);
+    for(const type of ['pointerup','pointercancel'])document.addEventListener(type,event=>activePointers.delete(event.pointerId),true);
+    const measure=touches=>({x:(touches[0].clientX+touches[1].clientX)/2,y:(touches[0].clientY+touches[1].clientY)/2,d:Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY)});
+    function scrollChain(target,dx,dy){
+      let x=dx,y=dy;
+      for(let el=target instanceof Element?target:target.parentElement;el&&el!==document.body;el=el.parentElement){
+        const style=getComputedStyle(el);
+        const left=el.scrollLeft,top=el.scrollTop;
+        if(/auto|scroll/.test(style.overflowX))el.scrollLeft+=x;
+        if(/auto|scroll/.test(style.overflowY))el.scrollTop+=y;
+        x-=el.scrollLeft-left;y-=el.scrollTop-top;
+      }
+      if(bridge.scrollPage)bridge.scrollPage(x,y);else window.scrollBy(x,y);
+    }
+    document.addEventListener('touchstart',event=>{
+      if(event.touches.length!==2)return;
+      event.preventDefault();
+      const p=measure(event.touches);gesture={start:p,last:p,target:event.target,mode:null};
+      for(const [id,target] of [...activePointers]){
+        target.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,pointerId:id,pointerType:'touch'}));
+        try{if(target.hasPointerCapture(id))target.releasePointerCapture(id);}catch(_){}
+      }
+      suppressClickUntil=performance.now()+600;
+    },{capture:true,passive:false});
+    document.addEventListener('touchmove',event=>{
+      if(!gesture||event.touches.length!==2)return;
+      event.preventDefault();event.stopPropagation();
+      const p=measure(event.touches),g=gesture;
+      const travel=Math.hypot(p.x-g.start.x,p.y-g.start.y),spread=Math.abs(p.d-g.start.d);
+      if(!g.mode){if(spread>12&&spread>travel*1.25)g.mode='zoom';else if(travel>8)g.mode='scroll';}
+      if(g.mode==='scroll')scrollChain(g.target,g.last.x-p.x,g.last.y-p.y);
+      else if(g.mode==='zoom'&&bridge.zoomBy)bridge.zoomBy(Math.max(.8,Math.min(1.25,p.d/Math.max(1,g.last.d))));
+      g.last=p;suppressClickUntil=performance.now()+600;
+    },{capture:true,passive:false});
+    for(const type of ['touchend','touchcancel'])document.addEventListener(type,event=>{
+      if(gesture){event.preventDefault();suppressClickUntil=performance.now()+600;if(event.touches.length<2)gesture=null;}
+    },{capture:true,passive:false});
+    document.addEventListener('click',event=>{if(performance.now()<suppressClickUntil){event.preventDefault();event.stopImmediatePropagation();}},true);
+    const gestureHint=document.createElement('div');gestureHint.className='mobile-gesture-hint';gestureHint.textContent='Two fingers: scroll · Pinch: zoom';settings.append(gestureHint);
     select('Pads');
   }, {once:true});
 })();

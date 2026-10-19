@@ -1,4 +1,4 @@
-P-12 FULL15 Android 1.0.8 — smartphone edition
+P-12 FULL15 Android 1.0.9 — smartphone edition
 
 Base: P12_FULL15_WINDOWS_MAX_BUILD_FIX_2026-10-11(1).zip supplied by the user.
 FULL15_SOURCE.json records exact source hashes. P-12.html is unchanged except
@@ -79,3 +79,11 @@ the reporting phone remains to be confirmed.
 - Remove screen zoom toolbars; fit by default, pinch enlarges and returns to fit without shrinking into a tiny strip.
 - Sequencer editing, touch faders, mute, project save/load, portrait/landscape, native pinch and original FULL15 integrity checked in browser tests.
 - Android build/lint passed; physical phone verification pending.
+
+1.0.9 audio and gestures:
+- Two-finger parallel drags scroll the touched panel, then the page; pinch uses native zoom. One-finger input remains for pads, steps and faders.
+- Cancel pad holds when a second finger starts navigation.
+- Load Android audio worklets from a data URL: blob module loading fails at the existing file origin. No storage-origin migration.
+- Android schedules 300ms ahead, skips overdue notes after a long UI stall, and avoids hidden sequencer redraws.
+- Explicit core patches tracked in ANDROID_SOURCE_PATCHES.json; integrity test reverses these patches to verify original FULL15 source.
+- Build/lint, local-file worklet loading, gesture, hidden-grid, fader, save/load and export integrity checks passed. Physical phone audio verification pending.

@@ -14,8 +14,8 @@ const server=http.createServer((req,res)=>{
  const page=await browser.newPage({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36',isMobile:true,hasTouch:true});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{
-  window.saved=[];window.pending={};window.toasts=[];
-  window.P12Android={beginSave:(id,name,mime)=>{pending[id]={name,mime,chunks:[]};return true;},appendSave:(id,c)=>{pending[id].chunks.push(c);return true;},finishSave:id=>{saved.push(pending[id]);delete pending[id];return true;},cancelSave:id=>{delete pending[id];},toast:m=>toasts.push(m),rotate:()=>window.rotated=true};
+  window.saved=[];window.pending={};window.toasts=[];window.zoomRequests=[];
+  window.P12Android={zoomBy:f=>zoomRequests.push(f),beginSave:(id,name,mime)=>{pending[id]={name,mime,chunks:[]};return true;},appendSave:(id,c)=>{pending[id].chunks.push(c);return true;},finishSave:id=>{saved.push(pending[id]);delete pending[id];return true;},cancelSave:id=>{delete pending[id];},toast:m=>toasts.push(m),rotate:()=>window.rotated=true};
  });
  await page.route('https://fonts.googleapis.com/**',r=>r.abort());
  await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'load'});
@@ -87,6 +87,11 @@ const server=http.createServer((req,res)=>{
  assert(await page.locator('#playlistDialog').isVisible());
  await page.evaluate(()=>window.p12AndroidBack());
  await page.locator('[data-view="FX"]').click();assert(await page.locator('#sslBusPanel').isVisible());
+ await page.evaluate(()=>{window.hiddenGridWrites=0;window.hiddenObserver=new MutationObserver(records=>hiddenGridWrites+=records.length);hiddenObserver.observe(document.getElementById('tracks'),{subtree:true,attributes:true,attributeFilter:['class']});});
+ await page.locator('#playBtn').tap();await page.waitForFunction(()=>window.__androidTest.state.playing);await page.waitForTimeout(600);
+ assert.equal(await page.evaluate(()=>hiddenGridWrites),0,'hidden sequencer does not redraw during playback');
+ await page.evaluate(()=>hiddenObserver.disconnect());await page.locator('#stopBtn').tap();
+
  await page.locator('[data-view="Pads"]').click();
  await page.locator('#p12MobileSettings summary').click();
  await page.locator('#saveProjectBtn').click();await page.waitForFunction(()=>saved.length>0);
@@ -111,11 +116,17 @@ const server=http.createServer((req,res)=>{
  }
  assert.equal(await page.locator('.p12-screen-zoom').count(),0,'no competing zoom toolbars');
  await page.locator('[data-view="Pads"]').click();
+ const twoFinger=async(x,y,dy)=>{await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:x-30,y,id:1},{x:x+30,y,id:2}]});for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-30,y:y+dy*i/12,id:1},{x:x+30,y:y+dy*i/12,id:2}]});await page.waitForTimeout(20);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(650);};
+ await page.evaluate(()=>scrollTo(0,0));await twoFinger(200,650,-250);
+ assert(await page.evaluate(()=>scrollY>80),'two-finger pan scrolls page');
+ assert.equal(await page.evaluate(()=>zoomRequests.length),0,'parallel fingers do not zoom');
+ assert.equal(await page.locator('.pad.p12-held').count(),0,'two-finger gesture releases pad holds');
+ await page.evaluate(()=>scrollTo(0,0));
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:160,y:400,id:1},{x:220,y:400,id:2}]});
  for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:160-i*5,y:400,id:1},{x:220+i*5,y:400,id:2}]});await page.waitForTimeout(30);}
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await page.waitForTimeout(300);
- assert(await page.evaluate(()=>visualViewport.scale>1.1),'two-finger pinch enlarges visual viewport');
+ assert(await page.evaluate(()=>zoomRequests.some(f=>f>1)),'pinch routes to native zoom');
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>toasts),[]);
  console.log('PASS: fitted sequencer paging and banked mixer, two-finger pinch, phone portrait/landscape fit, 8 pads, sequencer zoom/scroll, Mixer-32 master, playlist, FX, Project.p12 save/load, detached-anchor chunk byte equality, rotate bridge, no script errors');
  }finally{await browser.close();server.close();}
