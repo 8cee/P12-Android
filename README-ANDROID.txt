@@ -1,4 +1,4 @@
-P-12 FULL15 Android 1.0.6 — smartphone edition
+P-12 FULL15 Android 1.0.7 — smartphone edition
 
 Base: P12_FULL15_WINDOWS_MAX_BUILD_FIX_2026-10-11(1).zip supplied by the user.
 FULL15_SOURCE.json records exact source hashes. P-12.html is unchanged except
@@ -66,3 +66,9 @@ the reporting phone remains to be confirmed.
 - Mixer channel selector with all 32 pads, master, instrument/sequence tracks and buses.
 - Single vertical mixer scroll, faders first, larger touch targets.
 - Browser touch-drag and channel navigation checks pass; Android build/lint pass. Physical device verification pending.
+
+1.0.7 universal phone zoom:
+- Shared 50-175% layout zoom controls on every main screen and dialog, saved locally.
+- Allow native pinch gestures through mixer, knobs, faders and editors.
+- Scroll overflowing FX and song panels; dialogs scale independently from workspace.
+- Browser zoom/scroll checks and Android build/lint; physical phone verification pending.

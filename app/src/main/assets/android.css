@@ -132,3 +132,32 @@ html.p12-android #mixerWinBackdrop .mobile-mixer-hidden { display:none !importan
 html.p12-android #mixerWinBackdrop .p12-submix-grid { display:flex; flex-direction:column; min-width:0; }
 html.p12-android .sequencer-panel { resize:none !important; }
 html.p12-android #mixerWinBackdrop .mpc-power { min-height:44px !important; display:inline-flex; align-items:center; justify-content:center; }
+/* All workspaces share layout zoom and allow native two-finger pinch. */
+html.p12-android { --p12-ui-zoom:1; overflow:auto !important; }
+html.p12-android body { overflow:auto !important; }
+html.p12-android .unit { zoom:var(--p12-ui-zoom); width:100% !important; max-width:none !important; }
+html.p12-android .unit,html.p12-android .modal-backdrop,
+html.p12-android .modal-panel,html.p12-android dialog,
+html.p12-android #mixerWinBackdrop .mixerwin-scroll,
+html.p12-android #mixerWinBackdrop .mixerwin-row-scroll {
+  touch-action:pan-x pan-y pinch-zoom !important; overscroll-behavior:auto !important;
+}
+html.p12-android .modal-panel,html.p12-android #mixerWinBackdrop .mixerwin-panel,
+html.p12-android #playlistDialog {
+  zoom:var(--p12-ui-zoom); min-width:0 !important;
+  width:calc((100vw - 24px) / var(--p12-ui-zoom)) !important;
+  max-width:calc((100vw - 24px) / var(--p12-ui-zoom)) !important;
+  max-height:calc((100dvh - 24px) / var(--p12-ui-zoom)) !important;
+  overflow:auto !important;
+}
+html.p12-android #mixerWinBackdrop .mixerwin-panel { height:calc((100dvh - 24px) / var(--p12-ui-zoom)) !important; }
+html.p12-android .p12-screen-zoom { display:flex; align-items:center; gap:5px; padding:4px 0 8px; flex-shrink:0; }
+html.p12-android .p12-screen-zoom button { min-width:44px; border:1px solid #80643b; border-radius:6px; background:#292722; color:#edc082; }
+html.p12-android .p12-screen-zoom span { font-size:10px; color:#cbb58e; line-height:1.4; }
+html.p12-android .knob,html.p12-android .mpc-send-knob,
+html.p12-android #mixerWinBackdrop .mpc-send-knob,
+html.p12-android input[type=range],html.p12-android .pad .trimrow input[type=range],
+html.p12-android #mixerWinBackdrop .mpc-fader-input,
+html.p12-android canvas { touch-action:pinch-zoom !important; }
+html.p12-android .pads-panel,html.p12-android .fx-panel,
+html.p12-android #songPanel { overflow:auto !important; }

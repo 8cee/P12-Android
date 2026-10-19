@@ -146,6 +146,35 @@
     };
     // Document providers do not consistently understand .p12/.sp12/.hfe MIME types.
     document.querySelectorAll('input[type=file]').forEach(input => { if (/\.p12|\.sp12|\.hfe|application\/json/.test(input.accept)) input.accept = '*/*'; });
+    // Shared layout zoom works below 100%, while WebView pinch handles visual zoom.
+    let uiZoom=1;
+    try { uiZoom=Math.max(.5,Math.min(1.75,Number(localStorage.getItem('p12-phone-zoom'))||1)); } catch (_) {}
+    const zoomBars=[];
+    function applyUIZoom() {
+      document.documentElement.style.setProperty('--p12-ui-zoom',String(uiZoom));
+      for(const bar of zoomBars)bar.querySelector('[data-zoom="reset"]').textContent=Math.round(uiZoom*100)+'%';
+      try { localStorage.setItem('p12-phone-zoom',String(uiZoom)); } catch (_) {}
+    }
+    function addZoomBar(container) {
+      if(container.querySelector(':scope > .p12-screen-zoom'))return;
+      const bar=document.createElement('div');bar.className='p12-screen-zoom';bar.setAttribute('aria-label','Screen zoom');
+      for(const [action,label] of [['out','−'],['reset','100%'],['in','+']]) {
+        const button=document.createElement('button');button.type='button';button.dataset.zoom=action;button.textContent=label;
+        button.setAttribute('aria-label',action==='reset'?'Reset screen zoom':action==='out'?'Zoom screen out':'Zoom screen in');
+        button.onclick=()=>{uiZoom=action==='reset'?1:Math.max(.5,Math.min(1.75,Math.round((uiZoom+(action==='in'?.1:-.1))*100)/100));applyUIZoom();};bar.append(button);
+      }
+      const hint=document.createElement('span');hint.textContent='Pinch to zoom · Swipe to scroll';bar.append(hint);
+      container.prepend(bar);zoomBars.push(bar);applyUIZoom();
+    }
+    const zoomHost=document.createElement('div');nav.after(zoomHost);addZoomBar(zoomHost);
+    function setupDialogs() {
+      // Dialogs live outside the scaled workspace to avoid applying zoom twice.
+      document.querySelectorAll('.modal-backdrop,dialog').forEach(dialog=>{if(dialog.closest('.unit'))document.body.append(dialog);});
+      document.querySelectorAll('.modal-panel,dialog').forEach(addZoomBar);
+    }
+    setupDialogs();
+    new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches('.modal-panel,dialog')||n.querySelector('.modal-panel,dialog')))))setupDialogs();}).observe(document.body,{childList:true,subtree:true});
+    applyUIZoom();
     select('Pads');
   }, {once:true});
 })();

@@ -95,7 +95,35 @@ const server=http.createServer((req,res)=>{
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'landscape fit');
  await page.screenshot({path:'/tmp/p12-phone-landscape.png',fullPage:true});
  await page.getByText('Rotate',{exact:true}).click();assert(await page.evaluate(()=>window.rotated));
+ // Layout zoom must work in each workspace, and every ancestor must allow pinch.
+ await page.setViewportSize({width:390,height:844});
+ const assertPinch=async(selector)=>assert(await page.locator(selector).first().evaluate(e=>{for(let n=e;n;n=n.parentElement){const t=getComputedStyle(n).touchAction;if(t!=='auto'&&t!=='manipulation'&&!t.includes('pinch-zoom'))return false;}return true;}),'pinch gesture allowed: '+selector);
+ for(const view of ['Pads','Sequencer','FX','Song','Mixer']) {
+   await page.locator('[data-view="'+view+'"]').click();
+   if(view==='Mixer'){await page.waitForSelector('#mixerWinBackdrop',{state:'visible'});await page.locator('#p12MobileMixerChannel').selectOption('master:0');}
+   const scope=view==='Mixer'?page.locator('#mixerWinBackdrop'):page.locator('.unit');
+   const zoom=scope.locator('.p12-screen-zoom').first();
+   await zoom.locator('[data-zoom="reset"]').click();
+   const target=view==='Mixer'?page.locator('#mixerWinBackdrop .mixerwin-panel'):page.locator('.unit');
+   for(let i=0;i<5;i++)await zoom.locator('[data-zoom="out"]').click();
+   assert.equal(await target.evaluate(e=>Number(getComputedStyle(e).zoom)),.5,'zoom out '+view);
+   assert(await target.evaluate(e=>e.getBoundingClientRect().width<=innerWidth+2&&e.getBoundingClientRect().width>innerWidth-50),'zoom-out width '+view);
+   for(let i=0;i<10;i++)await zoom.locator('[data-zoom="in"]').click();
+   assert.equal(await target.evaluate(e=>Number(getComputedStyle(e).zoom)),1.5,'zoom in '+view);
+   await assertPinch(view==='Mixer'?'.mpcstrip:not(.mobile-mixer-hidden) input.mpc-fader-input':view==='Pads'?'.pads-row':view==='Sequencer'?'.tracks-scroll':view==='FX'?'#sslBusPanel':'#songPanel');
+   await zoom.locator('[data-zoom="reset"]').click();
+   if(view==='Mixer')await page.evaluate(()=>window.p12AndroidBack());
+ }
+ await page.locator('[data-view="Song"]').click();await page.locator('#playlistToggleBtn').click();
+ assert(await page.locator('#playlistDialog .p12-screen-zoom').isVisible());
+ await assertPinch('#playlistDialog');await page.evaluate(()=>window.p12AndroidBack());
+ await page.locator('[data-view="Pads"]').click();
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:160,y:400,id:1},{x:220,y:400,id:2}]});
+ for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:160-i*5,y:400,id:1},{x:220+i*5,y:400,id:2}]});await page.waitForTimeout(30);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await page.waitForTimeout(300);
+ assert(await page.evaluate(()=>visualViewport.scale>1.1),'two-finger pinch enlarges visual viewport');
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>toasts),[]);
- console.log('PASS: phone portrait/landscape fit, 8 pads, sequencer zoom/scroll, Mixer-32 master, playlist, FX, Project.p12 save/load, detached-anchor chunk byte equality, rotate bridge, no script errors');
+ console.log('PASS: all-screen 50-150% zoom, two-finger pinch, phone portrait/landscape fit, 8 pads, sequencer zoom/scroll, Mixer-32 master, playlist, FX, Project.p12 save/load, detached-anchor chunk byte equality, rotate bridge, no script errors');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
