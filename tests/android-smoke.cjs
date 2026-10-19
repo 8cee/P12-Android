@@ -38,41 +38,49 @@ const server=http.createServer((req,res)=>{
  await page.locator('#playBtn').tap();await page.waitForFunction(()=>window.__androidTest.state.playing);
  await page.locator('#stopBtn').tap();await page.waitForFunction(()=>!window.__androidTest.state.playing);
 
- const before=await page.locator('.step').first().evaluate(e=>e.getBoundingClientRect().width);
- await page.locator('#seqZoomInBtn').click();
- const after=await page.locator('.step').first().evaluate(e=>e.getBoundingClientRect().width);assert(after>before,'step zoom');
- assert(await page.locator('.tracks-scroll').evaluate(e=>e.scrollWidth>e.clientWidth),'horizontal timeline scroll');
- // A real touch drag must scroll the document, including when begun on the timeline.
  const cdp=await page.context().newCDPSession(page);
- const drag=async(x,y,dx,dy)=>{await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let n=1;n<=12;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*n/12,y:y+dy*n/12}]});await page.waitForTimeout(20);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(200);};
+ assert.equal(await page.locator('.track').first().locator('.step:visible').count(),8,'eight tappable steps per page');
+ assert(await page.locator('.tracks-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+2),'sequencer fits without horizontal scrolling');
+ await page.getByRole('button',{name:'Next steps',exact:true}).tap();
+ assert.equal(await page.locator('.track').first().locator('.step:visible').first().getAttribute('data-tick'),'48');
+ await page.locator('.track').first().locator('.step:visible').first().tap();
+ assert(await page.locator('.track').first().locator('.step:visible').first().evaluate(e=>e.classList.contains('on')),'step on second page edits original cell');
+ await page.getByRole('button',{name:'Previous steps',exact:true}).tap();
  await page.evaluate(()=>scrollTo(0,0));
- await drag(270,680,0,-280);
- assert(await page.evaluate(()=>scrollY>80),'vertical touch scrolling from sequencer');
- await page.locator('.track').last().scrollIntoViewIfNeeded();
- assert(await page.locator('.track').last().evaluate(e=>e.getBoundingClientRect().bottom<innerHeight-60),'last sequencer row reachable above transport');
- await page.evaluate(()=>scrollTo(0,0));
- const scroller=page.locator('.tracks-scroll');await scroller.evaluate(e=>e.scrollLeft=0);
- await page.getByRole('button',{name:'Steps ▶',exact:true}).tap();await page.waitForTimeout(400);
- assert(await scroller.evaluate(e=>e.scrollLeft>100),'step navigation moves timeline');
- await scroller.evaluate(e=>e.scrollLeft=0);
+ assert(await page.locator('.track').last().evaluate(e=>e.getBoundingClientRect().bottom<=document.getElementById('p12MobileTransportButtons').getBoundingClientRect().top),'all eight sequencer rows fit above transport');
  await page.screenshot({path:'/tmp/p12-phone-seq.png',fullPage:true});
+ await page.locator('#p12LaneControls').tap();assert(await page.locator('.track').first().locator('.mute').isVisible());await page.locator('#p12LaneControls').tap();
  await page.locator('[data-view="Mixer"]').click();
  await page.waitForSelector('#mixerWinBackdrop',{state:'visible'});
- assert(await page.locator('.mpcstrip-master').isVisible());
+ await page.waitForFunction(()=>document.querySelectorAll('.mpcstrip').length===42);
+ assert.equal(await page.locator('.mpcstrip:visible').count(),4,'four faders at a time');
  await page.screenshot({path:'/tmp/p12-phone-mixer.png',fullPage:true});
- const picker=page.locator('#p12MobileMixerChannel');
- await page.waitForFunction(()=>document.querySelectorAll('#p12MobileMixerChannel option').length===43);
- assert.equal(await picker.locator('option').count(),43,'master, 32 pads, instrument track, 8 tracks and buses');
- await picker.selectOption('pad:31');
- assert.equal(await page.locator('.mpcstrip:visible').count(),1);
- assert.equal(await page.locator('.mpcstrip:visible').getAttribute('data-native-index'),'31');
- const fader=page.locator('.mpcstrip:visible input.mpc-fader-input');
+ const banks=page.locator('.mobile-mixer-banks');
+ await banks.getByRole('button',{name:'D',exact:true}).tap();
+ await page.getByRole('button',{name:'Next mixer channels',exact:true}).tap();
+ assert.equal(await page.locator('.mpcstrip:visible').last().getAttribute('data-native-index'),'31');
+ const touchFader=page.locator('.mpcstrip:visible input.mpc-fader-input').first();
+ const faderBounds=await touchFader.boundingBox();
+ const touchBefore=await touchFader.inputValue();
+ const x=faderBounds.x+faderBounds.width/2,y=faderBounds.y+faderBounds.height*.55;
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ for(let n=1;n<=8;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+n*8}]});await page.waitForTimeout(20);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ assert.notEqual(await touchFader.inputValue(),touchBefore,'fader responds to touch drag');
+ const fader=page.locator('.mpcstrip:visible input.mpc-fader-input').last();
+ const fid=await page.locator('.mpcstrip:visible').last().getAttribute('data-fid');
+ const oldVolume=await page.evaluate(fid=>window.__androidTest.state.vol[fid],fid);
  await fader.evaluate(e=>{e.value='0.5';e.dispatchEvent(new Event('input',{bubbles:true}));});
- assert.equal(await fader.inputValue(),'0.5','original fader remains interactive');
- await page.locator('.mpcstrip:visible').evaluate(e=>e.lastElementChild.scrollIntoView());
- assert(await page.locator('.mixerwin-scroll').evaluate(e=>e.scrollTop>0),'single mixer vertical surface reaches lower controls');
- await picker.selectOption('track:7');assert.equal(await page.locator('.mpcstrip:visible').count(),1);
- await picker.selectOption('buses');assert(await page.locator('#mixerwinSubmixes').isVisible());
+ assert.notEqual(await page.evaluate(fid=>window.__androidTest.state.vol[fid],fid),oldVolume,'original audio volume changes');
+ await page.locator('.mpcstrip:visible .mbtn').last().tap();assert(await page.evaluate(fid=>window.__androidTest.state.mute[fid],fid),'mute retains original state');
+ await page.locator('.mpcstrip:visible .mobile-channel-details summary').last().tap();
+ await page.waitForFunction(()=>document.querySelectorAll('.mobile-channel-expanded').length===1);
+ assert.equal(await page.locator('.mpcstrip:visible').count(),1,'More opens a full width channel');
+ assert(await page.locator('.mobile-channel-expanded .mpc-insert-select').first().isVisible());
+ await page.getByRole('button',{name:'Back to faders',exact:true}).tap();assert.equal(await page.locator('.mpcstrip:visible').count(),4);
+ await banks.getByRole('button',{name:'Tracks',exact:true}).tap();assert.equal(await page.locator('.mpcstrip:visible').count(),4);
+ await banks.getByRole('button',{name:'Master',exact:true}).tap();assert(await page.locator('.mpcstrip-master').isVisible());
+ await banks.getByRole('button',{name:'Buses',exact:true}).tap();assert(await page.locator('#mixerwinSubmixes').isVisible());
  assert(await page.evaluate(()=>window.p12AndroidBack()));
  await page.locator('[data-view="Song"]').click();
  await page.locator('#playlistToggleBtn').click();
@@ -95,28 +103,13 @@ const server=http.createServer((req,res)=>{
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'landscape fit');
  await page.screenshot({path:'/tmp/p12-phone-landscape.png',fullPage:true});
  await page.getByText('Rotate',{exact:true}).click();assert(await page.evaluate(()=>window.rotated));
- // Layout zoom must work in each workspace, and every ancestor must allow pinch.
+ // Fit remains the default on every page; native pinch still works.
  await page.setViewportSize({width:390,height:844});
- const assertPinch=async(selector)=>assert(await page.locator(selector).first().evaluate(e=>{for(let n=e;n;n=n.parentElement){const t=getComputedStyle(n).touchAction;if(t!=='auto'&&t!=='manipulation'&&!t.includes('pinch-zoom'))return false;}return true;}),'pinch gesture allowed: '+selector);
- for(const view of ['Pads','Sequencer','FX','Song','Mixer']) {
+ for(const view of ['Pads','Sequencer','FX','Song']) {
    await page.locator('[data-view="'+view+'"]').click();
-   if(view==='Mixer'){await page.waitForSelector('#mixerWinBackdrop',{state:'visible'});await page.locator('#p12MobileMixerChannel').selectOption('master:0');}
-   const scope=view==='Mixer'?page.locator('#mixerWinBackdrop'):page.locator('.unit');
-   const zoom=scope.locator('.p12-screen-zoom').first();
-   await zoom.locator('[data-zoom="reset"]').click();
-   const target=view==='Mixer'?page.locator('#mixerWinBackdrop .mixerwin-panel'):page.locator('.unit');
-   for(let i=0;i<5;i++)await zoom.locator('[data-zoom="out"]').click();
-   assert.equal(await target.evaluate(e=>Number(getComputedStyle(e).zoom)),.5,'zoom out '+view);
-   assert(await target.evaluate(e=>e.getBoundingClientRect().width<=innerWidth+2&&e.getBoundingClientRect().width>innerWidth-50),'zoom-out width '+view);
-   for(let i=0;i<10;i++)await zoom.locator('[data-zoom="in"]').click();
-   assert.equal(await target.evaluate(e=>Number(getComputedStyle(e).zoom)),1.5,'zoom in '+view);
-   await assertPinch(view==='Mixer'?'.mpcstrip:not(.mobile-mixer-hidden) input.mpc-fader-input':view==='Pads'?'.pads-row':view==='Sequencer'?'.tracks-scroll':view==='FX'?'#sslBusPanel':'#songPanel');
-   await zoom.locator('[data-zoom="reset"]').click();
-   if(view==='Mixer')await page.evaluate(()=>window.p12AndroidBack());
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'screen fit '+view);
  }
- await page.locator('[data-view="Song"]').click();await page.locator('#playlistToggleBtn').click();
- assert(await page.locator('#playlistDialog .p12-screen-zoom').isVisible());
- await assertPinch('#playlistDialog');await page.evaluate(()=>window.p12AndroidBack());
+ assert.equal(await page.locator('.p12-screen-zoom').count(),0,'no competing zoom toolbars');
  await page.locator('[data-view="Pads"]').click();
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:160,y:400,id:1},{x:220,y:400,id:2}]});
  for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:160-i*5,y:400,id:1},{x:220+i*5,y:400,id:2}]});await page.waitForTimeout(30);}
@@ -124,6 +117,6 @@ const server=http.createServer((req,res)=>{
  await page.waitForTimeout(300);
  assert(await page.evaluate(()=>visualViewport.scale>1.1),'two-finger pinch enlarges visual viewport');
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>toasts),[]);
- console.log('PASS: all-screen 50-150% zoom, two-finger pinch, phone portrait/landscape fit, 8 pads, sequencer zoom/scroll, Mixer-32 master, playlist, FX, Project.p12 save/load, detached-anchor chunk byte equality, rotate bridge, no script errors');
+ console.log('PASS: fitted sequencer paging and banked mixer, two-finger pinch, phone portrait/landscape fit, 8 pads, sequencer zoom/scroll, Mixer-32 master, playlist, FX, Project.p12 save/load, detached-anchor chunk byte equality, rotate bridge, no script errors');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

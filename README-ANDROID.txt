@@ -1,4 +1,4 @@
-P-12 FULL15 Android 1.0.7 — smartphone edition
+P-12 FULL15 Android 1.0.8 — smartphone edition
 
 Base: P12_FULL15_WINDOWS_MAX_BUILD_FIX_2026-10-11(1).zip supplied by the user.
 FULL15_SOURCE.json records exact source hashes. P-12.html is unchanged except
@@ -72,3 +72,10 @@ the reporting phone remains to be confirmed.
 - Allow native pinch gestures through mixer, knobs, faders and editors.
 - Scroll overflowing FX and song panels; dialogs scale independently from workspace.
 - Browser zoom/scroll checks and Android build/lint; physical phone verification pending.
+
+1.0.8 simplified phone workflow:
+- Eight visible step columns with paging and playhead follow; all eight pad rows fit the tested 390x844 screen.
+- Four mixer faders at a time with A/B/C/D/Tracks/Master/Buses tabs. More reveals the original advanced channel controls.
+- Remove screen zoom toolbars; fit by default, pinch enlarges and returns to fit without shrinking into a tiny strip.
+- Sequencer editing, touch faders, mute, project save/load, portrait/landscape, native pinch and original FULL15 integrity checked in browser tests.
+- Android build/lint passed; physical phone verification pending.

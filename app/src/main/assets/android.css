@@ -161,3 +161,64 @@ html.p12-android #mixerWinBackdrop .mpc-fader-input,
 html.p12-android canvas { touch-action:pinch-zoom !important; }
 html.p12-android .pads-panel,html.p12-android .fx-panel,
 html.p12-android #songPanel { overflow:auto !important; }
+/* 1.0.8: fitted workspaces, with detail available on demand. */
+html.p12-android .p12-screen-zoom { display:none !important; }
+html.p12-android .topbar { min-height:40px; }
+html.p12-android .topbar .brand { font-size:23px; }
+html.p12-android #p12MobileNav { gap:3px; margin-bottom:8px; }
+html.p12-mobile-seq #p12MobileTransport { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+html.p12-mobile-seq #p12MobileTransport .bank-row { display:flex; gap:5px; }
+html.p12-mobile-seq #p12MobileTransport .bank-row button { min-height:36px !important; }
+html.p12-mobile-seq .seq-zoom-row { margin-bottom:4px; }
+html.p12-mobile-seq .seq-zoom-row > :not(#seqLengthSummary):not(#seqBarJump) { display:none !important; }
+html.p12-mobile-seq #seqLengthSummary { font-size:10px; }
+html.p12-mobile-seq .track-selector { margin-bottom:4px !important; padding:5px !important; }
+html.p12-mobile-seq .tracks-scroll { overflow:visible !important; margin-bottom:5px; }
+html.p12-mobile-seq .track,html.p12-mobile-seq .step-ruler { width:100% !important; min-width:0 !important; gap:3px !important; padding:3px 0 !important; box-sizing:border-box; }
+html.p12-mobile-seq .step { width:100% !important; min-width:0 !important; height:34px !important; min-height:34px !important; }
+html.p12-mobile-seq .track .tname { width:32px !important; min-width:0 !important; padding:0 !important; position:static !important; justify-content:center; }
+html.p12-mobile-seq .track .tname .tlabel,html.p12-mobile-seq .track .tname .tbtn { display:none !important; }
+html.p12-mobile-seq .step-ruler .ruler-label { font-size:8px; letter-spacing:0; }
+html.p12-mobile-seq .step-ruler .ruler-cell { width:auto !important; min-width:0 !important; font-size:9px; }
+html.p12-mobile-seq .mobile-step-hidden { display:none !important; }
+html.p12-mobile-seq .mobile-lane-controls .track .tname { grid-column:1 / -1; width:auto !important; display:flex; gap:8px; }
+html.p12-mobile-seq .mobile-lane-controls .track .tname .tlabel,html.p12-mobile-seq .mobile-lane-controls .track .tname .tbtn { display:inline-flex !important; }
+html.p12-mobile-seq .mobile-lane-controls .track { grid-template-columns:repeat(8,minmax(0,1fr)) !important; }
+.mobile-seq-pager,.mobile-mixer-pager { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; color:#edc082; }
+.mobile-seq-pager button,.mobile-mixer-pager button { min-width:44px; }
+.mobile-seq-pager span,.mobile-mixer-pager span { font-size:12px; }
+html.p12-android button:disabled { opacity:.35; }
+html.p12-android #p12LaneControls { width:100%; margin:3px 0; }
+html.p12-android .mobile-seq-help { margin:0; }
+html.p12-android #mixerWinBackdrop { bottom:76px !important; height:auto !important; padding:0 !important; }
+html.p12-android #mixerWinBackdrop .mixerwin-panel { width:100vw !important; max-width:100vw !important; margin:0 !important; height:calc(100dvh - 76px) !important; max-height:calc(100dvh - 76px) !important; padding:10px !important; border-radius:0; overflow:hidden !important; }
+html.p12-android #mixerWinBackdrop .modal-header { flex-shrink:0; margin-bottom:5px; }
+html.p12-android .mobile-mixer-banks { display:flex; gap:4px; flex-wrap:wrap; flex-shrink:0; }
+html.p12-android .mobile-mixer-banks button { flex:1; min-width:38px; padding:4px; font-size:11px !important; }
+html.p12-android .mobile-mixer-banks button[aria-pressed=true] { background:#a87232; color:#111; }
+html.p12-android #mixerWinBackdrop .mixerwin-strips { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+html.p12-android #mixerWinBackdrop .mpcstrip { min-width:0; padding:5px; }
+html.p12-android #mixerWinBackdrop .mpc-channel-id { font-size:10px; padding:6px 2px !important; white-space:normal; height:42px; box-sizing:border-box; letter-spacing:0; margin-bottom:5px; }
+html.p12-android #mixerWinBackdrop .mpc-ms-row { gap:3px; }
+html.p12-android #mixerWinBackdrop .mpc-ms-row button { min-width:0; font-size:11px !important; }
+html.p12-android #mixerWinBackdrop .mpc-db-scale { display:none; }
+html.p12-android #mixerWinBackdrop .mpc-fader-area { gap:2px; }
+html.p12-android #mixerWinBackdrop .mpc-fader-input::-webkit-slider-thumb { width:30px; height:36px; margin-top:-16px; }
+html.p12-android #mixerWinBackdrop .mpc-fader-readout { order:-2; font-size:11px !important; margin-bottom:8px; }
+html.p12-android #mixerWinBackdrop .mobile-channel-details { order:0; }
+html.p12-android #mixerWinBackdrop .mobile-channel-details > summary { padding:12px 0; text-align:center; border:1px solid #80643b; border-radius:5px; color:#edc082; font-size:12px; }
+html.p12-android #mixerWinBackdrop .mobile-mixer-detail .mixerwin-strips,
+html.p12-android #mixerWinBackdrop .mixerwin-strips:has(> .mpcstrip-master:not(.mobile-mixer-hidden)) { grid-template-columns:minmax(0,1fr); }
+html.p12-android #mixerWinBackdrop .mobile-mixer-detail .mpc-db-scale { display:flex; }
+html.p12-android #mixerWinBackdrop .mobile-mixer-hidden { display:none !important; }
+html.p12-android .mobile-mixer-pager [hidden] { display:none !important; }
+@media (orientation:landscape) and (max-height:500px) {
+ html.p12-android #mixerWinBackdrop .mpc-fader-area,html.p12-android #mixerWinBackdrop .mpc-fader-box,html.p12-android #mixerWinBackdrop .mpc-meter { height:150px; }
+ html.p12-android #mixerWinBackdrop .mpc-fader-input { width:150px; }
+}
+html.p12-mobile-seq .seq-zoom-row { display:none !important; }
+html.p12-mobile-seq .track-selector .ts-dots { display:none; }
+html.p12-mobile-seq .tracks { gap:3px !important; }
+html.p12-android .mobile-seq-pager button,html.p12-android .mobile-mixer-pager button,html.p12-android #p12LaneControls { border:1px solid #151514; border-radius:5px; background:linear-gradient(#deded7,#b4b5af); color:#181919; }
+html.p12-android .mobile-mixer-banks button { border:1px solid #80643b; border-radius:5px; background:#34271a; color:#f3be69; }
+html.p12-mobile-seq .mobile-seq-pager #seqBarJump { min-width:72px; max-width:90px; }

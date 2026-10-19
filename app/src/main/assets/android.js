@@ -40,7 +40,7 @@
   }, true);
   document.addEventListener('DOMContentLoaded', () => {
     const viewport = document.querySelector('meta[name=viewport]');
-    if (viewport) viewport.content = 'width=device-width,initial-scale=1,minimum-scale=0.25,maximum-scale=5,user-scalable=yes,viewport-fit=cover';
+    if (viewport) viewport.content = 'width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=3,user-scalable=yes,viewport-fit=cover';
     // Move the original controls (and their listeners), never clone sampler state.
     const unit = document.querySelector('.unit');
     const header = document.querySelector('.topbar');
@@ -98,43 +98,88 @@
     const help = document.createElement('details'); help.className='mobile-seq-help';
     const helpTitle=document.createElement('summary');helpTitle.textContent='Sequencer help';
     help.append(helpTitle,seqPanel.querySelector('.section-label'));seqPanel.prepend(help);
-    const scrollTools=document.createElement('div');scrollTools.className='mobile-seq-scroll';
     const seqScroller=seqPanel.querySelector('.tracks-scroll');
-    for(const [label,direction] of [['◀ Steps',-1],['Steps ▶',1]]) {
-      const b=document.createElement('button');b.className='btn small ghost';b.textContent=label;
-      b.onclick=()=>seqScroller.scrollBy({left:direction*Math.max(100,seqScroller.clientWidth-128),behavior:'smooth'});scrollTools.append(b);
+    const tracks=document.getElementById('tracks');
+    const pager=document.createElement('div');pager.className='mobile-seq-pager';
+    const previousSteps=document.createElement('button'),nextSteps=document.createElement('button'),stepRange=document.createElement('span');
+    previousSteps.textContent='◀';nextSteps.textContent='▶';previousSteps.setAttribute('aria-label','Previous steps');nextSteps.setAttribute('aria-label','Next steps');
+    pager.append(previousSteps,document.getElementById('seqBarJump'),stepRange,nextSteps);seqScroller.before(pager);
+    const laneControls=document.createElement('button');laneControls.id='p12LaneControls';laneControls.textContent='Lane controls';laneControls.setAttribute('aria-expanded','false');
+    laneControls.onclick=()=>{const on=seqPanel.classList.toggle('mobile-lane-controls');laneControls.setAttribute('aria-expanded',String(on));laneControls.textContent=on?'Done':'Lane controls';};seqScroller.after(laneControls);
+    seqPanel.append(help);
+    let stepPage=0;
+    function sizeRows() {
+      const rows=[...tracks.children].filter(row=>row.matches('.track,.step-ruler'));
+      const count=rows[0]?.children.length-1||0;
+      stepPage=Math.max(0,Math.min(stepPage,Math.ceil(count/8)-1));
+      const first=stepPage*8,last=Math.min(count,first+8);
+      for(const row of rows) {
+        row.style.setProperty('grid-template-columns','32px repeat(8,minmax(0,1fr))','important');
+        [...row.children].forEach((cell,i)=>{if(i)cell.classList.toggle('mobile-step-hidden',i-1<first||i-1>=last);});
+      }
+      const tick=Number(rows[0]?.children[first+1]?.dataset.tick)||0;
+      stepRange.textContent='Bar '+(Math.floor(tick/96)+1)+' · '+(first+1)+'–'+last;
+      previousSteps.disabled=stepPage===0;nextSteps.disabled=last>=count;
+      seqScroller.scrollLeft=0;
     }
-    seqScroller.before(scrollTools);
-    // Reuse original channel nodes and handlers; only change which channel is shown.
+    previousSteps.onclick=()=>{stepPage--;sizeRows();};nextSteps.onclick=()=>{stepPage++;sizeRows();};
+    document.getElementById('seqBarJump').addEventListener('change',event=>{
+      const cells=[...tracks.querySelectorAll('.step-ruler > [data-tick]')];
+      const index=cells.findIndex(cell=>Number(cell.dataset.tick)>=Number(event.target.value)*96);
+      stepPage=Math.floor(Math.max(0,index)/8);sizeRows();
+    });
+    sizeRows();new MutationObserver(sizeRows).observe(tracks,{childList:true});
+    new MutationObserver(()=>{
+      if(!document.getElementById('playBtn').classList.contains('active'))return;
+      const row=tracks.querySelector('.track');
+      const cells=row?[...row.querySelectorAll('.step')]:[];
+      const playing=cells.findIndex(cell=>cell.classList.contains('playhead'));
+      if(playing>=0&&Math.floor(playing/8)!==stepPage){stepPage=Math.floor(playing/8);sizeRows();}
+    }).observe(tracks,{subtree:true,attributes:true,attributeFilter:['class']});
+    // Four original channel strips at a time. All controls keep their original handlers.
     const mixer=document.getElementById('mixerWinBackdrop');
     const workspace=mixer.querySelector('.mixerwin-scroll');
-    const picker=document.createElement('div');picker.className='mobile-mixer-picker';
-    const channel=document.createElement('select');channel.id='p12MobileMixerChannel';channel.setAttribute('aria-label','Mixer channel');
-    const prev=document.createElement('button'),next=document.createElement('button');
-    prev.textContent='◀';next.textContent='▶';prev.setAttribute('aria-label','Previous channel');next.setAttribute('aria-label','Next channel');
-    picker.append(prev,channel,next);workspace.before(picker);
-    let selectedChannel='master:0';
+    const mixerHeader=mixer.querySelector('.modal-header .section-label');if(mixerHeader)mixerHeader.textContent='Mixer';
+    document.getElementById('mixerWinCloseBtn').textContent='Done';
+    const banks=document.createElement('div');banks.className='mobile-mixer-banks';banks.setAttribute('aria-label','Mixer banks');
+    const mixerPager=document.createElement('div');mixerPager.className='mobile-mixer-pager';
+    const prev=document.createElement('button'),next=document.createElement('button'),range=document.createElement('span'),back=document.createElement('button');
+    prev.textContent='◀';next.textContent='▶';back.textContent='Back to faders';prev.setAttribute('aria-label','Previous mixer channels');next.setAttribute('aria-label','Next mixer channels');
+    mixerPager.append(prev,range,next,back);workspace.before(banks,mixerPager);
+    let mixerBank='A',mixerPage=0,detailKey=null;
+    const keyOf=strip=>strip.dataset.nativeKind+':'+strip.dataset.nativeIndex;
     function updateMixer() {
       const strips=[...workspace.querySelectorAll('.mpcstrip')];
-      const options=strips.map(strip=>({key:strip.dataset.nativeKind+':'+strip.dataset.nativeIndex,label:strip.querySelector('.mpc-channel-id')?.textContent.trim()||strip.dataset.fid||'Channel',strip}));
-      if(!options.length)return;
-      if(!options.some(o=>o.key===selectedChannel)&&selectedChannel!=='buses')selectedChannel=options[0].key;
-      channel.replaceChildren(...options.map(o=>new Option(o.label,o.key)),new Option('Subchannels / buses','buses'));channel.value=selectedChannel;
-      for(const o of options)o.strip.classList.toggle('mobile-mixer-hidden',o.key!==selectedChannel);
-      for(const row of workspace.querySelectorAll('.mixerwin-row-scroll'))row.classList.toggle('mobile-mixer-hidden',row.querySelector('#mixerwinSubmixes')?selectedChannel!=='buses':![...row.querySelectorAll('.mpcstrip')].some(s=>!s.classList.contains('mobile-mixer-hidden')));
+      for(const strip of strips) {
+        if(!strip.querySelector('.mobile-channel-details')) {
+          const details=document.createElement('details');details.className='mobile-channel-details';
+          const title=document.createElement('summary');title.textContent='More';details.append(title);
+          for(const child of [...strip.children])if(!child.matches('.mpc-channel-id,.mpc-ms-row,.mpc-fader-area,.mpc-fader-readout'))details.append(child);
+          strip.append(details);
+          details.addEventListener('toggle',()=>{
+            if(details.open&&detailKey!==keyOf(strip)){detailKey=keyOf(strip);updateMixer();workspace.scrollTop=0;}
+            else if(!details.open&&detailKey===keyOf(strip)){detailKey=null;updateMixer();}
+          });
+        }
+      }
+      const filtered=strips.filter(strip=>mixerBank==='Master'?strip.dataset.nativeKind==='master':mixerBank==='Tracks'?strip.dataset.nativeKind==='track':strip.dataset.nativeKind==='pad'&&strip.dataset.fid?.startsWith(mixerBank+'_'));
+      mixerPage=Math.min(mixerPage,Math.max(0,Math.ceil(filtered.length/4)-1));
+      const visible=detailKey?strips.filter(s=>keyOf(s)===detailKey):filtered.slice(mixerPage*4,mixerPage*4+4);
+      for(const strip of strips){strip.classList.toggle('mobile-mixer-hidden',!visible.includes(strip));strip.classList.toggle('mobile-channel-expanded',detailKey===keyOf(strip));if(detailKey!==keyOf(strip))strip.querySelector('.mobile-channel-details').open=false;}
+      workspace.classList.toggle('mobile-mixer-detail',!!detailKey);
+      for(const row of workspace.querySelectorAll('.mixerwin-row-scroll'))row.classList.toggle('mobile-mixer-hidden',row.querySelector('#mixerwinSubmixes')?mixerBank!=='Buses':![...row.querySelectorAll('.mpcstrip')].some(s=>visible.includes(s)));
       for(const label of workspace.querySelectorAll('.mixerwin-section-label'))label.classList.add('mobile-mixer-hidden');
+      range.textContent=mixerBank==='Master'?'Master':mixerBank==='Buses'?'Subchannels':mixerBank+' · '+(mixerPage*4+1)+'–'+Math.min(filtered.length,mixerPage*4+4);
+      prev.hidden=next.hidden=!!detailKey||filtered.length<=4;range.hidden=!!detailKey;back.hidden=!detailKey;
+      prev.disabled=mixerPage===0;next.disabled=(mixerPage+1)*4>=filtered.length;
+      for(const b of banks.children)b.setAttribute('aria-pressed',String(b.dataset.bank===mixerBank));
     }
-    channel.onchange=()=>{selectedChannel=channel.value;updateMixer();workspace.scrollTop=0;};
-    prev.onclick=()=>{channel.selectedIndex=Math.max(0,channel.selectedIndex-1);channel.onchange();};
-    next.onclick=()=>{channel.selectedIndex=Math.min(channel.options.length-1,channel.selectedIndex+1);channel.onchange();};
+    for(const name of ['A','B','C','D','Tracks','Master','Buses']){
+      const b=document.createElement('button');b.textContent=name;b.dataset.bank=name;b.onclick=()=>{mixerBank=name;mixerPage=0;detailKey=null;updateMixer();workspace.scrollTop=0;};banks.append(b);
+    }
+    prev.onclick=()=>{mixerPage--;updateMixer();};next.onclick=()=>{mixerPage++;updateMixer();};back.onclick=()=>{detailKey=null;updateMixer();workspace.scrollTop=0;};
     for(const id of ['mixerwinStrips','mixerwinTrackStrips'])new MutationObserver(updateMixer).observe(document.getElementById(id),{childList:true});
     updateMixer();
-    const tracks = document.getElementById('tracks');
-    function sizeRows() {
-      for (const row of tracks.children) if (row.matches('.track,.step-ruler'))
-        row.style.setProperty('grid-template-columns', `128px repeat(${row.children.length - 1}, var(--seq-step-min,28px))`, 'important');
-    }
-    sizeRows(); new MutationObserver(sizeRows).observe(tracks, {childList:true});
     window.p12AndroidBack = () => {
       const dialog = document.querySelector('dialog[open]'); if (dialog) { dialog.close(); return true; }
       const dialogs = [...document.querySelectorAll('.modal-backdrop')].filter(d => getComputedStyle(d).display !== 'none');
@@ -146,35 +191,15 @@
     };
     // Document providers do not consistently understand .p12/.sp12/.hfe MIME types.
     document.querySelectorAll('input[type=file]').forEach(input => { if (/\.p12|\.sp12|\.hfe|application\/json/.test(input.accept)) input.accept = '*/*'; });
-    // Shared layout zoom works below 100%, while WebView pinch handles visual zoom.
-    let uiZoom=1;
-    try { uiZoom=Math.max(.5,Math.min(1.75,Number(localStorage.getItem('p12-phone-zoom'))||1)); } catch (_) {}
-    const zoomBars=[];
-    function applyUIZoom() {
-      document.documentElement.style.setProperty('--p12-ui-zoom',String(uiZoom));
-      for(const bar of zoomBars)bar.querySelector('[data-zoom="reset"]').textContent=Math.round(uiZoom*100)+'%';
-      try { localStorage.setItem('p12-phone-zoom',String(uiZoom)); } catch (_) {}
-    }
-    function addZoomBar(container) {
-      if(container.querySelector(':scope > .p12-screen-zoom'))return;
-      const bar=document.createElement('div');bar.className='p12-screen-zoom';bar.setAttribute('aria-label','Screen zoom');
-      for(const [action,label] of [['out','−'],['reset','100%'],['in','+']]) {
-        const button=document.createElement('button');button.type='button';button.dataset.zoom=action;button.textContent=label;
-        button.setAttribute('aria-label',action==='reset'?'Reset screen zoom':action==='out'?'Zoom screen out':'Zoom screen in');
-        button.onclick=()=>{uiZoom=action==='reset'?1:Math.max(.5,Math.min(1.75,Math.round((uiZoom+(action==='in'?.1:-.1))*100)/100));applyUIZoom();};bar.append(button);
-      }
-      const hint=document.createElement('span');hint.textContent='Pinch to zoom · Swipe to scroll';bar.append(hint);
-      container.prepend(bar);zoomBars.push(bar);applyUIZoom();
-    }
-    const zoomHost=document.createElement('div');nav.after(zoomHost);addZoomBar(zoomHost);
+    // Fit by default; pinch can enlarge and return to the fitted view.
+    document.documentElement.style.setProperty('--p12-ui-zoom','1');
+    try { localStorage.removeItem('p12-phone-zoom'); } catch (_) {}
     function setupDialogs() {
-      // Dialogs live outside the scaled workspace to avoid applying zoom twice.
       document.querySelectorAll('.modal-backdrop,dialog').forEach(dialog=>{if(dialog.closest('.unit'))document.body.append(dialog);});
-      document.querySelectorAll('.modal-panel,dialog').forEach(addZoomBar);
     }
     setupDialogs();
-    new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches('.modal-panel,dialog')||n.querySelector('.modal-panel,dialog')))))setupDialogs();}).observe(document.body,{childList:true,subtree:true});
-    applyUIZoom();
+    unit.append(settings);
+    pages.Pads.querySelector('.pads-panel').append(tools);
     select('Pads');
   }, {once:true});
 })();
