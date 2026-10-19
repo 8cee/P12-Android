@@ -1,0 +1,103 @@
+html.p12-android body { padding-bottom:64px !important; }
+#p12MobileNav { position:fixed; bottom:0; left:0; right:0; z-index:90; display:flex; gap:4px; padding:5px max(5px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left)); background:#171717; border-top:2px solid #a87232; }
+html.p12-android #p12MobileNav button { flex:1; min-width:0; min-height:44px !important; padding:4px; background:#34271a; color:#f3be69; border:1px solid #9e6e2c; border-radius:6px; font-size:12px; }
+#p12MobileNav button[aria-pressed=true] { background:#a87232 !important; color:#111 !important; }
+html.p12-android .track,html.p12-android .step-ruler { width:max-content !important; min-width:100% !important; gap:2px !important; padding:4px 5px !important; }
+html.p12-android .step { width:var(--seq-step-min,28px) !important; min-width:var(--seq-step-min,28px) !important; height:var(--seq-step-min,28px) !important; min-height:var(--seq-step-min,28px) !important; }
+html.p12-android .tracks-scroll { overflow:auto !important; }
+html.p12-mobile-seq .sequencer-panel { position:fixed !important; inset:env(safe-area-inset-top) env(safe-area-inset-right) 62px env(safe-area-inset-left) !important; z-index:80; background:#191919; margin:0 !important; width:auto !important; max-width:none !important; display:flex; flex-direction:column; overflow:auto !important; box-sizing:border-box; }
+html.p12-mobile-seq .tracks-scroll { flex:1 1 auto; min-height:120px !important; max-height:none !important; }
+html.p12-mobile-seq body { overflow:hidden !important; }
+html.p12-android .modal-backdrop { z-index:100; }
+html.p12-android .modal-panel { box-sizing:border-box; max-width:calc(100vw - 16px) !important; max-height:calc(100vh - 24px) !important; overflow:auto; }
+html.p12-android #playlistDialog { max-width:calc(100vw - 20px); max-height:calc(100vh - 20px); overflow:auto; box-sizing:border-box; }
+/* Windows detached editors and desktop host controls have no Android backend. */
+html.p12-android #p12PianoDetach { display:none !important; }
+/* Smartphone workspace: the Windows 1200px composition is intentionally replaced. */
+html.p12-android,html.p12-android body { min-width:0 !important; width:100% !important; margin:0 !important; overflow-x:hidden !important; }
+html.p12-android .unit { width:100% !important; min-width:0 !important; max-width:100% !important; padding:10px !important; margin:0 !important; box-sizing:border-box; }
+html.p12-android .topbar { justify-content:space-between !important; gap:8px !important; flex-wrap:wrap; margin:0 0 8px !important; padding:0 !important; }
+html.p12-android .topbar > .sub,html.p12-android .brand .model { display:none !important; }
+html.p12-android .topbar > button { background:#332c22; color:#f3be69; border:1px solid #9e6e2c; border-radius:7px; padding:8px 16px; }
+html.p12-android button,html.p12-android .btn,html.p12-android select,html.p12-android input:not([type=checkbox]):not([type=range]) { min-height:44px !important; font-size:13px !important; }
+html.p12-android input[type=range] { min-height:44px !important; }
+#p12MobileTransport { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:10px; }
+#p12MobileTransport .lcd { grid-column:1 / -1; min-height:0; padding:7px 10px; }
+#p12MobileTransport .lcd .row1b { display:none; }
+#p12MobileTransport .lcd .row2 { font-size:13px; }
+#p12MobileTransport .mobile-play-controls { display:flex; gap:5px; grid-column:1 / -1; }
+#p12MobileTransport .mobile-play-controls button { flex:1; }
+#p12MobileTransport .bank-row { grid-column:1 / -1; display:flex; gap:8px; }
+#p12MobileTransport .bank-row button { flex:1; }
+#p12MobileSettings,.mobile-pad-settings { border:1px solid #655338; border-radius:8px; margin-bottom:10px; background:#242323; }
+#p12MobileSettings summary,.mobile-pad-settings summary { min-height:44px; box-sizing:border-box; padding:13px; cursor:pointer; color:#edc082; font-size:13px; }
+html.p12-android #p12MobileSettings .transport { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; width:auto !important; min-width:0 !important; padding:8px !important; }
+html.p12-android #p12MobileSettings .transport-buttons { grid-column:1 / -1 !important; display:flex !important; flex-wrap:wrap !important; gap:6px !important; }
+#p12MobileSettings .ctrl-block { min-width:0; }
+#p12MobileSettings .transport-buttons > button { flex:1 1 110px; }
+html.p12-android #layoutToggleBtn { display:none !important; }
+.p12-mobile-page[hidden] { display:none !important; }
+html.p12-android .pads-panel,html.p12-android .sequencer-panel,html.p12-android .fx-panel { box-sizing:border-box; width:100% !important; min-width:0 !important; }
+html.p12-android .pads-toolbar { align-items:flex-start !important; flex-direction:column; }
+html.p12-android .pads-toolbar > div:last-child { display:flex; flex-wrap:wrap; width:100%; gap:5px !important; }
+html.p12-android .pads-toolbar .btn { flex:1 1 70px; }
+html.p12-android .pads-toolbar .section-label { font-size:11px; line-height:1.5; }
+html.p12-android .pads-row { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+html.p12-android .pad { min-width:0 !important; min-height:130px; padding:12px 6px !important; }
+html.p12-android .pad .pad-label { font-size:15px; }
+html.p12-android .pad button { min-width:40px; }
+html.p12-android .mixer-strips { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+html.p12-android .mixer-panel > div:first-child { flex-wrap:wrap; }
+html.p12-android .mixer-panel > div:first-child > div:last-child { flex-wrap:wrap; }
+html.p12-android .fx-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+html.p12-mobile-seq .sequencer-panel { position:relative !important; inset:auto !important; display:block !important; z-index:auto; padding:8px !important; }
+html.p12-mobile-seq .tracks-scroll { max-height:60vh !important; min-height:240px !important; overflow:auto !important; }
+html.p12-android .seq-zoom-row { display:flex; flex-wrap:wrap; gap:6px; }
+html.p12-android .track-selector { flex-wrap:wrap; }
+html.p12-android .tbtn { min-width:32px; min-height:36px; display:inline-flex; align-items:center; justify-content:center; }
+html.p12-android .track .tname { font-size:10px !important; }
+html.p12-android .modal-panel { width:calc(100vw - 16px) !important; margin:8px !important; padding:10px !important; }
+html.p12-android .mixerwin-panel { max-height:calc(100vh - 16px) !important; }
+html.p12-android .mixerwin-row-scroll { overflow-x:auto !important; }
+html.p12-android .extract-menu { position:fixed; inset:10% 10px auto; max-height:75vh; overflow:auto; min-width:0; width:auto; z-index:120000; }
+@media(min-width:600px) {
+  html.p12-android .pads-row { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
+  html.p12-android .mixer-strips { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
+  #p12MobileTransport { grid-template-columns:1.2fr 1fr; }
+  #p12MobileTransport .lcd { grid-column:1; grid-row:1 / 3; }
+  #p12MobileTransport .mobile-play-controls,#p12MobileTransport .bank-row { grid-column:2; }
+}
+/* Top page tabs and a permanent bottom transport, following the supplied references. */
+html.p12-android #p12MobileNav { position:sticky; top:0; bottom:auto; left:auto; right:auto; z-index:95; margin:0 -2px 10px; border:1px solid #80643b; border-radius:8px; padding:4px; }
+#p12MobileNav button[data-view=Sequencer] { font-size:11px !important; }
+#p12MobileTransportButtons { position:fixed; bottom:0; left:0; right:0; z-index:96; display:flex; gap:7px; padding:8px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); background:#171717; border-top:1px solid #80643b; }
+#p12MobileTransportButtons button { flex:1; min-width:0; min-height:48px !important; }
+html.p12-android body { padding-bottom:76px !important; }
+html.p12-android .pads-row { grid-template-columns:repeat(4,minmax(0,1fr)) !important; gap:7px !important; }
+html.p12-android .pad { min-height:120px; padding:10px 4px !important; background:linear-gradient(#e0dfd8,#b4b5af); color:#181919; border-radius:8px; box-shadow:0 3px 0 #080909; }
+html.p12-android .pad .plabel { font-size:12px; letter-spacing:.4px; color:#181919; }
+html.p12-android .pad .num { font-size:12px; color:#3c4646; }
+html.p12-android .pad .samplename { max-width:100%; overflow:hidden; text-overflow:ellipsis; color:#333; }
+html.p12-android:not(.p12-edit-pads) .pad .bottomrow,
+html.p12-android:not(.p12-edit-pads) .pad .loadbtn,
+html.p12-android:not(.p12-edit-pads) .pad .removebtn,
+html.p12-android:not(.p12-edit-pads) .pad .trimrow { display:none !important; }
+html.p12-android.p12-edit-pads .pads-row { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+html.p12-android.p12-edit-pads .pad { min-height:200px; }
+html.p12-android.p12-edit-pads .pad .bottomrow > span,html.p12-android.p12-edit-pads .pad .loadbtn,html.p12-android.p12-edit-pads .pad .removebtn { min-width:36px; min-height:44px; display:inline-flex; justify-content:center; align-items:center; }
+#p12EditPads { width:100%; margin-top:12px; border:1px solid #80643b; border-radius:6px; background:#292722; color:#edc082; }
+.mobile-pad-tools { margin-bottom:12px; border:1px solid #655338; border-radius:8px; }
+.mobile-pad-tools summary { padding:13px 8px; font-size:12px; color:#edc082; min-height:44px; box-sizing:border-box; }
+.mobile-pad-tools > div { display:flex !important; flex-wrap:wrap; padding:6px; }
+.mobile-pad-tools button { flex:1 1 85px; }
+html.p12-android #p12VstChordDock { position:static !important; display:flex; flex-wrap:wrap; margin:8px; }
+html.p12-android .pads-toolbar .section-label { flex:0 0 auto; }
+html.p12-android .pad.p12-held,html.p12-android .pad.active { background:linear-gradient(#e3ad55,#be6c2c); }
+html.p12-android .pad .trimrow { color:#111; }
+@media(min-width:600px) { html.p12-android.p12-edit-pads .pads-row { grid-template-columns:repeat(4,minmax(0,1fr)) !important; } }
+#p12MobileTransport .mobile-tempo { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#edc082; font-size:12px; padding:3px 8px; background:#20201e; border-radius:6px; }
+#p12MobileTransport .mobile-tempo input { flex:1; max-width:100px; }
+html.p12-android #upgradeDock { position:static !important; margin:8px; padding:8px; display:flex; gap:6px; flex-wrap:wrap; }
+html.p12-android #upgradeDock button { flex:1 1 100px; }
+html.p12-android .mpcstrip .knob { min-width:44px; min-height:44px; }
+@media(min-width:600px) { #p12MobileTransport .mobile-tempo { grid-column:2;grid-row:1; } #p12MobileTransport .bank-row { grid-row:2; } }

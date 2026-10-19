@@ -2,6 +2,15 @@ package com.p12.sampler;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
+import java.io.FileInputStream;
+import java.util.ArrayDeque;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -31,14 +40,20 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final int FILE_CHOOSER = 1001;
-    private static final int AUDIO_PERMISSION = 1002;
+    private static final int AUDIO_PERMISSION = 1002, SAVE_DOCUMENT = 1003;
+    private PermissionRequest microphoneRequest;
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final ArrayDeque<ByteAccumulator> saveQueue = new ArrayDeque<>();
+    private boolean choosingSave;
+    private final AndroidBridge bridge = new AndroidBridge();
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private final Map<String, ByteAccumulator> pending = new HashMap<>();
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+        setRequestedOrientation(getPreferences(MODE_PRIVATE).getInt("orientation", ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR));
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enableImmersiveMode();
         web = new WebView(this);
         web.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -62,11 +77,14 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) s.setSafeBrowsingEnabled(true);
 
-        web.addJavascriptInterface(new AndroidBridge(), "P12Android");
+        web.addJavascriptInterface(bridge, "P12Android");
         web.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return !"file:///android_asset/P-12.html".equals(request.getUrl().toString());
+            }
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                installDownloadBridge();
+                enableImmersiveMode();
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -74,7 +92,7 @@ public class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 Intent i;
-                try { i = params.createIntent(); }
+                try { i = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE); i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE); }
                 catch (Exception e) { i = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE); }
                 try { startActivityForResult(i, FILE_CHOOSER); return true; }
                 catch (Exception e) { fileCallback = null; Toast.makeText(MainActivity.this, "No file picker available", Toast.LENGTH_SHORT).show(); return false; }
@@ -84,17 +102,40 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     boolean wantsMic = false;
                     for (String r : request.getResources()) if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsMic = true;
-                    if (wantsMic && Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    if (!wantsMic || !"file".equals(request.getOrigin().getScheme())) { request.deny(); return; }
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        if (microphoneRequest != null) microphoneRequest.deny();
+                        microphoneRequest = request;
                         requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION);
-                    }
-                    request.grant(request.getResources());
+                    } else request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
                 });
+            }
+            @Override public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (microphoneRequest == request) microphoneRequest = null;
             }
         });
         web.loadUrl("file:///android_asset/P-12.html");
     }
 
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == AUDIO_PERMISSION && microphoneRequest != null) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED)
+                microphoneRequest.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+            else microphoneRequest.deny();
+            microphoneRequest = null;
+        }
+    }
+
     private void enableImmersiveMode() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+            return;
+        }
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -115,18 +156,22 @@ public class MainActivity extends Activity {
         if (hasFocus) enableImmersiveMode();
     }
 
-    private void installDownloadBridge() {
-        String js = "javascript:(function(){if(window.__p12AndroidDownloadBridge)return;window.__p12AndroidDownloadBridge=true;"+
-            "try{let v=document.querySelector('meta[name=viewport]');if(!v){v=document.createElement('meta');v.name='viewport';document.head.appendChild(v);}v.content='width=device-width,initial-scale=1,minimum-scale=0.25,maximum-scale=5,user-scalable=yes';let st=document.getElementById('p12-android-scrollfix');if(!st){st=document.createElement('style');st.id='p12-android-scrollfix';st.textContent='html,body{overflow:auto!important;overflow-x:auto!important;overflow-y:auto!important;touch-action:pan-x pan-y pinch-zoom!important;-webkit-overflow-scrolling:touch!important;}body{min-width:max-content!important;}.sequencer-panel{overflow:visible!important;}.tracks-scroll{overflow-x:auto!important;overflow-y:auto!important;max-width:none!important;}.tracks{width:max-content!important;min-width:100%!important;}.track,.step-ruler{width:max-content!important;min-width:max-content!important;}.step{width:var(--seq-step-min,32px)!important;min-width:var(--seq-step-min,32px)!important;}';document.head.appendChild(st);}const fixSeq=function(){const tracks=document.getElementById('tracks');if(!tracks)return;tracks.style.setProperty('width','max-content','important');tracks.style.setProperty('min-width','100%','important');const sc=tracks.parentElement;if(sc){sc.style.setProperty('overflow-x','auto','important');sc.style.setProperty('overflow-y','auto','important');}const sample=tracks.querySelector('.track');if(sample){const n=Math.max(1,sample.querySelectorAll('.step').length);document.documentElement.style.setProperty('--p12-seq-cols',String(n));}tracks.querySelectorAll('.track,.step-ruler').forEach(function(row){const g=row.style.gridTemplateColumns;if(g)row.style.setProperty('grid-template-columns',g,'important');row.style.setProperty('width','max-content','important');row.style.setProperty('min-width','max-content','important');});};fixSeq();const tracks=document.getElementById('tracks');if(tracks&&!tracks.__p12SeqObserver){tracks.__p12SeqObserver=true;new MutationObserver(function(){requestAnimationFrame(fixSeq);}).observe(tracks,{childList:true,subtree:false});}window.addEventListener('resize',function(){setTimeout(fixSeq,50);},{passive:true});window.addEventListener('orientationchange',function(){setTimeout(fixSeq,150);},{passive:true});}catch(_e){}"+
-            "const mobileNav=function(){if(document.getElementById('p12MobileNav'))return;const nav=document.createElement('nav');nav.id='p12MobileNav';nav.setAttribute('aria-label','P-12 mobile views');nav.style.cssText='position:fixed;z-index:2147483647;left:0;right:0;bottom:0;display:flex;gap:5px;padding:5px 8px max(5px,env(safe-area-inset-bottom));background:#171717;border-top:2px solid #a87232;';const css=document.createElement('style');css.textContent='html.p12-mobile-focus .sequencer-panel{position:fixed!important;inset:0 0 57px 0!important;max-width:100vw!important;z-index:2147483000!important;background:#191919!important;overflow:auto!important;}html.p12-mobile-focus .tracks-scroll{width:100%!important;max-width:100vw!important;overflow-x:auto!important;overflow-y:auto!important;}html.p12-mobile-focus .track,html.p12-mobile-focus .step-ruler{width:max-content!important;min-width:max-content!important;}body{padding-bottom:62px!important;}#p12SeqFocusBtn{display:none!important;}#p12MobileNav button{flex:1;min-height:44px;min-width:0;background:#34271a;color:#f3be69;border:1px solid #9e6e2c;border-radius:6px;font-weight:700;font-size:13px;}';document.head.appendChild(css);const names=['PADS','SEQ','MIXER','FX'];const panel=()=>document.querySelector('.sequencer-panel');const select=function(name){document.documentElement.classList.toggle('p12-mobile-focus',name==='SEQ');const p=panel();if(name==='SEQ'&&p)p.scrollIntoView({block:'nearest'});if(name==='MIXER'||name==='FX'){const candidates=Array.from(document.querySelectorAll('button,[role=button]'));const key=name==='MIXER'?'mixer':'fx';const target=candidates.find(x=>(x.textContent||'').trim().toLowerCase()===key);if(target)target.click();}for(const b of nav.children)b.style.background=b.textContent===name?'#a87232':'#34271a';};names.forEach(name=>{const b=document.createElement('button');b.textContent=name;b.addEventListener('click',()=>select(name));nav.appendChild(b);});document.body.appendChild(nav);select('PADS');};mobileNav();let sb=document.getElementById('p12SeqFocusBtn');if(!sb){sb=document.createElement('button');sb.id='p12SeqFocusBtn';sb.textContent='SEQ';sb.style.cssText='position:fixed;right:12px;bottom:12px;z-index:2147483647;padding:12px 16px;border-radius:8px;border:1px solid #000;background:#d18a22;color:#111;font-weight:800;font-family:monospace;box-shadow:0 3px 14px rgba(0,0,0,.55)';document.body.appendChild(sb);sb.addEventListener('click',function(){const on=document.documentElement.classList.toggle('p12-seq-focus');sb.textContent=on?'BACK':'SEQ';setTimeout(fixSeq,60);});}let sf=document.getElementById('p12-seq-focus-style');if(!sf){sf=document.createElement('style');sf.id='p12-seq-focus-style';sf.textContent='html.p12-seq-focus,html.p12-seq-focus body{overflow:hidden!important;}html.p12-seq-focus .sequencer-panel{position:fixed!important;inset:0!important;z-index:2147483000!important;margin:0!important;border-radius:0!important;padding:12px!important;background:#1a1b1e!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}html.p12-seq-focus .sequencer-panel .section-label{padding-right:78px!important;}html.p12-seq-focus .tracks-scroll{flex:1 1 auto!important;width:100vw!important;max-width:100vw!important;min-height:0!important;max-height:none!important;overflow-x:auto!important;overflow-y:auto!important;touch-action:pan-x pan-y pinch-zoom!important;-webkit-overflow-scrolling:touch!important;}html.p12-seq-focus #tracks{width:max-content!important;min-width:100%!important;}html.p12-seq-focus .track,html.p12-seq-focus .step-ruler{width:max-content!important;min-width:max-content!important;}html.p12-seq-focus .track{grid-template-columns:88px repeat(var(--p12-seq-cols,16),32px)!important;}html.p12-seq-focus .step{width:32px!important;min-width:32px!important;}';document.head.appendChild(sf);}document.querySelectorAll('input[type=file]').forEach(function(i){let ac=i.getAttribute('accept')||'';if(ac.includes('.p12proj')||ac.includes('application/json')){if(!ac.includes('.p12'))ac='.p12,'+ac;i.setAttribute('accept',ac);}});document.addEventListener('click',async function(e){let a=e.target;while(a&&a.tagName!=='A')a=a.parentElement;if(!a||!a.download||!a.href||!a.href.startsWith('blob:'))return;"+
-            "e.preventDefault();e.stopPropagation();try{const b=await fetch(a.href).then(r=>r.blob());const ab=await b.arrayBuffer();const u=new Uint8Array(ab);let bin='';const chunk=0x8000;for(let i=0;i<u.length;i+=chunk){bin+=String.fromCharCode.apply(null,u.subarray(i,Math.min(i+chunk,u.length)));}"+
-            "const b64=btoa(bin),id=Date.now()+'-'+Math.random();let outName=a.download||'P12-export.bin';if(/\\.p12proj\\.json$/i.test(outName)||/\\.p12proj$/i.test(outName)||/^p12-project-/i.test(outName))outName='Project.p12';P12Android.beginSave(id,outName,b.type||'application/octet-stream');const step=350000;for(let i=0;i<b64.length;i+=step)P12Android.appendSave(id,b64.slice(i,i+step));P12Android.finishSave(id);}"+
-            "catch(err){console.error('Android save bridge failed',err);P12Android.toast('Save failed: '+err);}},true);})();";
-        web.evaluateJavascript(js, null);
-    }
-
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SAVE_DOCUMENT) {
+            choosingSave=false; ByteAccumulator a=saveQueue.poll();
+            if (a != null) {
+                if (resultCode==RESULT_OK && data!=null && data.getData()!=null) {
+                    Uri uri=data.getData(); io.execute(() -> {
+                        try { copyToUri(a.file,uri); bridge.toast("Saved "+a.name); }
+                        catch(Exception e) { bridge.toast("Save failed: "+e.getMessage()); }
+                        finally { a.file.delete(); }
+                    });
+                } else { a.file.delete(); bridge.toast("Save cancelled"); }
+            }
+            chooseSave();
+        }
+
         if (requestCode == FILE_CHOOSER && fileCallback != null) {
             Uri[] result = null;
             if (resultCode == RESULT_OK && data != null) {
@@ -139,36 +184,92 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        if (web.canGoBack()) web.goBack(); else super.onBackPressed();
+        web.evaluateJavascript("Boolean(window.p12AndroidBack && window.p12AndroidBack())", handled -> {
+            if (!"true".equals(handled)) new AlertDialog.Builder(this).setTitle("Close P-12?")
+                .setMessage("Save your project before closing to keep your changes.")
+                .setNegativeButton("Keep working", null).setPositiveButton("Close", (d, w) -> finish()).show();
+        });
     }
 
     public class AndroidBridge {
         @JavascriptInterface public void toast(String msg) { runOnUiThread(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show()); }
-        @JavascriptInterface public synchronized void beginSave(String id, String name, String mime) { pending.put(id, new ByteAccumulator(name, mime)); }
-        @JavascriptInterface public synchronized void appendSave(String id, String base64Chunk) { ByteAccumulator a=pending.get(id); if(a!=null) a.append(base64Chunk); }
-        @JavascriptInterface public synchronized void finishSave(String id) {
-            ByteAccumulator a=pending.remove(id); if(a==null) return;
-            try { byte[] bytes=Base64.decode(a.data.toString(), Base64.DEFAULT); saveToDownloads(a.name,a.mime,bytes); }
-            catch(Exception ex){ toast("Save failed: "+ex.getMessage()); }
+        @JavascriptInterface public void rotate() {
+            runOnUiThread(() -> {
+                boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+                int value = landscape ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+                getPreferences(MODE_PRIVATE).edit().putInt("orientation", value).apply(); setRequestedOrientation(value);
+            });
+        }
+        @JavascriptInterface public synchronized boolean beginSave(String id, String name, String mime) {
+            if (pending.size() >= 4 || pending.containsKey(id)) return false;
+            try { pending.put(id, new ByteAccumulator(name, mime)); return true; } catch (Exception e) { return false; }
+        }
+        @JavascriptInterface public synchronized boolean appendSave(String id, String chunk) {
+            ByteAccumulator a = pending.get(id); if (a == null) return false;
+            try {
+                if (chunk.length() > 350000) throw new Exception("Chunk too large");
+                byte[] bytes = Base64.decode(chunk, Base64.DEFAULT); a.size += bytes.length;
+                if (a.size > 512L * 1024 * 1024) throw new Exception("Export too large");
+                a.stream.write(bytes); return true;
+            } catch (Exception e) { cancelSave(id); return false; }
+        }
+        @JavascriptInterface public synchronized void cancelSave(String id) {
+            ByteAccumulator a = pending.remove(id); if (a == null) return;
+            try { a.stream.close(); } catch (Exception ignored) {} a.file.delete();
+        }
+        @JavascriptInterface public synchronized boolean finishSave(String id) {
+            ByteAccumulator a = pending.remove(id); if (a == null) return false;
+            try { a.stream.close(); } catch (Exception e) { a.file.delete(); return false; }
+            if (Build.VERSION.SDK_INT >= 29) io.execute(() -> saveToDownloads(a));
+            else runOnUiThread(() -> { saveQueue.add(a); chooseSave(); });
+            return true;
+        }
+        synchronized void dispose() { for (String id : pending.keySet().toArray(new String[0])) cancelSave(id); }
+    }
+    private void copyToUri(File file, Uri uri) throws Exception {
+        try (FileInputStream in = new FileInputStream(file); OutputStream out = getContentResolver().openOutputStream(uri, "w")) {
+            if (out == null) throw new Exception("Cannot open destination");
+            byte[] buffer = new byte[65536]; int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
         }
     }
-
-    private void saveToDownloads(String rawName, String mime, byte[] data) throws Exception {
-        String name = rawName.replaceAll("[\\/:*?\"<>|]", "_");
-        if (Build.VERSION.SDK_INT >= 29) {
-            ContentValues v=new ContentValues(); v.put(MediaStore.Downloads.DISPLAY_NAME,name); v.put(MediaStore.Downloads.MIME_TYPE,mime); v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/P-12");
-            Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v); if(uri==null) throw new Exception("Cannot create download");
-            try(OutputStream os=getContentResolver().openOutputStream(uri)){ if(os==null) throw new Exception("Cannot open download"); os.write(data); }
-            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved to Downloads/P-12/"+name, Toast.LENGTH_LONG).show());
-        } else {
-            File dir=new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),"P-12"); if(!dir.exists() && !dir.mkdirs()) throw new Exception("Cannot create export folder");
-            File f=new File(dir,name); try(FileOutputStream os=new FileOutputStream(f)){os.write(data);} runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved: "+f.getAbsolutePath(), Toast.LENGTH_LONG).show());
+    @android.annotation.TargetApi(29)
+    private void saveToDownloads(ByteAccumulator a) {
+        Uri uri = null;
+        try {
+            ContentValues v = new ContentValues(); v.put(MediaStore.Downloads.DISPLAY_NAME,a.name);
+            v.put(MediaStore.Downloads.MIME_TYPE,a.mime); v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/P-12");
+            v.put(MediaStore.Downloads.IS_PENDING,1);
+            uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v);
+            if (uri == null) throw new Exception("Cannot create download");
+            copyToUri(a.file, uri); v.clear(); v.put(MediaStore.Downloads.IS_PENDING,0); getContentResolver().update(uri,v,null,null);
+            bridge.toast("Saved to Downloads/P-12/"+a.name);
+        } catch (Exception e) {
+            if (uri != null) { try { getContentResolver().delete(uri,null,null); } catch (Exception ignored) {} }
+            bridge.toast("Save failed: "+e.getMessage());
+        } finally { a.file.delete(); }
+    }
+    private void chooseSave() {
+        if (choosingSave || saveQueue.isEmpty() || isFinishing()) return;
+        ByteAccumulator a = saveQueue.peek();
+        try {
+            choosingSave = true;
+            startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType(a.mime).putExtra(Intent.EXTRA_TITLE,a.name), SAVE_DOCUMENT);
+        } catch (Exception e) { choosingSave=false;saveQueue.remove().file.delete();bridge.toast("No document saver available");chooseSave(); }
+    }
+    private class ByteAccumulator {
+        final String name,mime; final File file; final OutputStream stream; long size;
+        ByteAccumulator(String n,String m) throws Exception {
+            String clean = n == null ? "" : n.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+            name = clean.isEmpty() || clean.equals(".") || clean.equals("..") ? "P12-export.bin" : clean;
+            mime = m == null || m.isEmpty() ? "application/octet-stream" : m;
+            file = File.createTempFile("p12-export-", ".tmp", getCacheDir()); stream = new FileOutputStream(file);
         }
     }
-
-    private static class ByteAccumulator {
-        final String name,mime; final StringBuilder data=new StringBuilder();
-        ByteAccumulator(String n,String m){name=n;mime=m;}
-        void append(String s){data.append(s);}
+    @Override protected void onDestroy() {
+        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        if (microphoneRequest != null) microphoneRequest.deny();
+        if (web != null) { web.removeJavascriptInterface("P12Android"); web.destroy(); }
+        bridge.dispose(); for (ByteAccumulator a : saveQueue) a.file.delete(); saveQueue.clear(); io.shutdown(); super.onDestroy();
     }
 }

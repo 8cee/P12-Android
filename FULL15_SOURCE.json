@@ -1,0 +1,10 @@
+{
+  "source": "P12_FULL15_WINDOWS_MAX_BUILD_FIX_2026-10-11(1).zip",
+  "source_zip_sha256": "cbe6b8fa8e67051fba2c623bfc5d4ae0a4a27af1918f81c2694f538c83f51cee",
+  "files": {
+    "P-12.html": "f6b233505482e0cfc28e50cd910ebe3b5401e4b5eb64d9240acc1311a75d4235",
+    "SP1200_HFE_BASE.hfe": "7bbbfa48244258b88aa72900e76b5e76c6d6302f5e84f350f68458a57311866d",
+    "SP1200_HFE_BASE.raw": "c1e96dfd8b7193b423ae5d6c23f74da2e21f68ed4d92a5ca01fa374fcfe7378f",
+    "vendor/jszip.min.js": "acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e"
+  }
+}
